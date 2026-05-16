@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARX Platform – Architecture Reference</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&family=Inter:wght@300;400;500&display=swap');
+
+  :root {
+    --bg:       #070B14;
+    --panel:    #0C1220;
+    --border:   #162040;
+    --cyan:     #00E5FF;
+    --magenta:  #FF00E5;
+    --green:    #00FF88;
+    --orange:   #FF6B00;
+    --white:    #D8E4FF;
+    --dim:      #3A4466;
+    --yellow:   #FFD600;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--white);
+    font-family: 'Inter', sans-serif;
+    font-weight: 300;
+    line-height: 1.7;
+    padding: 0 0 80px;
+  }
+
+  /* ── Header ── */
+  header {
+    background: linear-gradient(135deg, #0A1128 0%, #050810 100%);
+    border-bottom: 1px solid var(--cyan);
+    padding: 56px 80px 48px;
+    position: relative;
+    overflow: hidden;
+  }
+  header::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(
+      0deg, transparent, transparent 39px,
+      rgba(0,229,255,0.04) 39px, rgba(0,229,255,0.04) 40px
+    ),
+    repeating-linear-gradient(
+      90deg, transparent, transparent 39px,
+      rgba(0,229,255,0.04) 39px, rgba(0,229,255,0.04) 40px
+    );
+    pointer-events: none;
+  }
+  header .tag {
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--cyan);
+    font-size: 11px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  header h1 {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 56px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    line-height: 1.1;
+    background: linear-gradient(90deg, var(--cyan), var(--magenta));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  header .subtitle {
+    color: var(--dim);
+    font-size: 16px;
+    margin-top: 10px;
+    letter-spacing: 1px;
+  }
+  .version-badge {
+    display: inline-block;
+    background: rgba(0,229,255,0.1);
+    border: 1px solid var(--cyan);
+    color: var(--cyan);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 2px;
+    margin-top: 16px;
+  }
+
+  /* ── Layout ── */
+  .content { max-width: 1240px; margin: 0 auto; padding: 0 80px; }
+
+  /* ── Section headings ── */
+  .section { margin-top: 64px; }
+  .section-header {
+    display: flex; align-items: center; gap: 16px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 12px;
+    margin-bottom: 28px;
+  }
+  .section-number {
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--cyan);
+    font-size: 13px;
+    min-width: 32px;
+  }
+  h2 {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--white);
+    letter-spacing: 1px;
+  }
+  h3 {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--cyan);
+    margin: 28px 0 12px;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── Panels ── */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 24px 28px;
+    margin-bottom: 20px;
+  }
+  .panel.cyan-accent  { border-left: 3px solid var(--cyan);    }
+  .panel.magenta-accent { border-left: 3px solid var(--magenta); }
+  .panel.green-accent  { border-left: 3px solid var(--green);   }
+  .panel.orange-accent { border-left: 3px solid var(--orange);  }
+
+  /* ── Architecture diagram ── */
+  .arch-diagram {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+    margin: 32px 0;
+  }
+  .arch-layer {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 20px 32px;
+    display: grid;
+    grid-template-columns: 160px 1fr auto;
+    align-items: center;
+    gap: 24px;
+    transition: border-color 0.2s;
+  }
+  .arch-layer:hover { border-color: var(--cyan); }
+  .arch-layer + .arch-layer { margin-top: -1px; }
+  .arch-layer .layer-tag {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 2px;
+    text-align: center;
+  }
+  .layer-cpp     { background: rgba(0,229,255,0.15);   color: var(--cyan);    border: 1px solid var(--cyan);    }
+  .layer-python  { background: rgba(255,0,229,0.12);   color: var(--magenta); border: 1px solid var(--magenta); }
+  .layer-go      { background: rgba(0,255,136,0.12);   color: var(--green);   border: 1px solid var(--green);   }
+  .layer-gui     { background: rgba(255,107,0,0.12);   color: var(--orange);  border: 1px solid var(--orange);  }
+  .arch-layer .layer-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 18px;
+    font-weight: 600;
+  }
+  .arch-layer .layer-desc {
+    font-size: 13px;
+    color: var(--dim);
+  }
+  .arch-arrow {
+    text-align: center;
+    color: var(--border);
+    font-size: 20px;
+    padding: 6px 0;
+    letter-spacing: 2px;
+  }
+  .ipc-badge {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    padding: 2px 8px;
+    border-radius: 2px;
+    background: rgba(255,214,0,0.1);
+    color: var(--yellow);
+    border: 1px solid rgba(255,214,0,0.3);
+    white-space: nowrap;
+  }
+
+  /* ── Data flow ── */
+  .flow-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin: 24px 0;
+  }
+  .flow-box {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 16px;
+    text-align: center;
+    position: relative;
+  }
+  .flow-box::after {
+    content: '→';
+    position: absolute;
+    right: -20px; top: 50%;
+    transform: translateY(-50%);
+    color: var(--dim);
+    font-size: 20px;
+  }
+  .flow-box:last-child::after { display: none; }
+  .flow-box .flow-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--cyan);
+    margin-bottom: 8px;
+  }
+  .flow-box .flow-detail {
+    font-size: 12px;
+    color: var(--dim);
+    line-height: 1.5;
+  }
+
+  /* ── File tree ── */
+  .file-tree {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    line-height: 2;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 20px 28px;
+  }
+  .file-tree .dir  { color: var(--cyan);    font-weight: bold; }
+  .file-tree .file { color: var(--white);   }
+  .file-tree .ext-cpp  { color: #82AAFF; }
+  .file-tree .ext-py   { color: var(--green); }
+  .file-tree .ext-go   { color: var(--cyan);  }
+  .file-tree .ext-yaml { color: var(--yellow); }
+  .file-tree .ext-cmake { color: var(--orange); }
+  .file-tree .comment  { color: var(--dim); }
+
+  /* ── Code blocks ── */
+  pre {
+    background: #05080F;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 20px 24px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    overflow-x: auto;
+    line-height: 1.6;
+    margin: 16px 0;
+  }
+  code { color: var(--green); }
+  .kw   { color: var(--cyan);    }
+  .str  { color: var(--orange);  }
+  .cmt  { color: var(--dim);     }
+  .num  { color: var(--magenta); }
+
+  /* ── Performance table ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    margin: 16px 0;
+  }
+  th {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--cyan);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 16px;
+    text-align: left;
+  }
+  td {
+    padding: 10px 16px;
+    border-bottom: 1px solid rgba(22,32,64,0.6);
+    color: var(--white);
+  }
+  tr:hover td { background: rgba(0,229,255,0.03); }
+  .badge-green   { color: var(--green);   }
+  .badge-orange  { color: var(--orange);  }
+  .badge-magenta { color: var(--magenta); }
+  .badge-cyan    { color: var(--cyan);    }
+
+  /* ── Build steps ── */
+  .steps { counter-reset: step; }
+  .step {
+    display: flex; gap: 20px; margin-bottom: 20px;
+    align-items: flex-start;
+  }
+  .step-num {
+    counter-increment: step;
+    min-width: 36px; height: 36px;
+    border-radius: 50%;
+    background: rgba(0,229,255,0.1);
+    border: 1px solid var(--cyan);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    color: var(--cyan);
+    flex-shrink: 0;
+  }
+  .step-body h4 {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--white);
+    margin-bottom: 6px;
+  }
+  .step-body p { font-size: 14px; color: var(--dim); }
+
+  /* ── Inline code ── */
+  .mono {
+    font-family: 'Share Tech Mono', monospace;
+    background: rgba(0,229,255,0.07);
+    color: var(--cyan);
+    padding: 1px 6px;
+    border-radius: 2px;
+    font-size: 0.9em;
+  }
+
+  p { font-size: 15px; color: #8899BB; margin-bottom: 12px; }
+  ul { padding-left: 20px; color: #8899BB; font-size: 15px; }
+  li { margin-bottom: 6px; }
+  li::marker { color: var(--cyan); }
+  strong { color: var(--white); font-weight: 500; }
+
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  footer {
+    margin-top: 80px;
+    border-top: 1px solid var(--border);
+    padding: 24px 80px;
+    text-align: center;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: 2px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="content">
+    <div class="tag">// ARX Platform  –  Architecture Reference</div>
+    <h1>Real-Time Gesture Recognition<br>&amp; AR Interaction Platform</h1>
+    <div class="subtitle">Distributed · Multi-Language · Production-Grade</div>
+    <div class="version-badge">VERSION 2.0.0  |  C++20 / Python 3.12 / Go 1.24 / PySide6</div>
+  </div>
+</header>
+
+<div class="content">
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 1: SYSTEM OVERVIEW -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <span class="section-number">01</span>
+    <h2>System Overview</h2>
+  </div>
+
+  <p>The ARX Platform is a production-grade, research-lab-quality real-time computer
+  vision system built on a strict four-layer architecture. Each layer runs as an
+  independent process, communicates over well-defined IPC channels, and can be
+  scaled, replaced, or debugged in isolation.</p>
+
+  <div class="arch-diagram">
+    <div class="arch-layer">
+      <span class="layer-tag layer-cpp">C++ / OpenCV</span>
+      <div>
+        <div class="layer-title">Layer 1 — Vision Engine</div>
+        <div class="layer-desc">Camera capture · GPU frame processing · AR overlay rendering · FPS pipeline</div>
+      </div>
+      <span class="ipc-badge">POSIX SHM ↓</span>
+    </div>
+    <div class="arch-arrow">▼▼▼</div>
+    <div class="arch-layer">
+      <span class="layer-tag layer-python">Python / MediaPipe</span>
+      <div>
+        <div class="layer-title">Layer 2 — AI / Gesture</div>
+        <div class="layer-desc">Landmark inference · Temporal smoothing · FSM gesture events · ZMQ publish</div>
+      </div>
+      <span class="ipc-badge">ZeroMQ PUB ↓</span>
+    </div>
+    <div class="arch-arrow">▼▼▼</div>
+    <div class="arch-layer">
+      <span class="layer-tag layer-go">Go / Gin</span>
+      <div>
+        <div class="layer-title">Layer 3 — Control Plane</div>
+        <div class="layer-desc">WebSocket hub · REST API · Telemetry bus · Metrics aggregation · Multi-client fan-out</div>
+      </div>
+      <span class="ipc-badge">WebSocket ↓</span>
+    </div>
+    <div class="arch-arrow">▼▼▼</div>
+    <div class="arch-layer">
+      <span class="layer-tag layer-gui">PySide6</span>
+      <div>
+        <div class="layer-title">Layer 4 — Operator Dashboard</div>
+        <div class="layer-desc">Live feed · Landmark overlay · Gesture badges · Sparkline graphs · Event log</div>
+      </div>
+      <span>&nbsp;</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 2: FOLDER STRUCTURE -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <span class="section-number">02</span>
+    <h2>Project Structure</h2>
+  </div>
+
+  <div class="file-tree">
+<span class="dir">arx-platform/</span>
+├── <span class="dir">cpp_vision_engine/</span>          <span class="comment"># Layer 1 – C++20</span>
+│   ├── <span class="ext-cmake">CMakeLists.txt</span>
+│   ├── <span class="dir">include/</span>
+│   │   └── <span class="ext-cpp">arx_types.hpp</span>           <span class="comment"># Shared types, RingBuffer, constants</span>
+│   │   └── <span class="ext-cpp">camera_manager.hpp</span>
+│   │   └── <span class="ext-cpp">frame_pipeline.hpp</span>
+│   │   └── <span class="ext-cpp">render_engine.hpp</span>
+│   │   └── <span class="ext-cpp">shared_memory_bridge.hpp</span>
+│   │   └── <span class="ext-cpp">telemetry_encoder.hpp</span>
+│   └── <span class="dir">src/</span>
+│       ├── <span class="ext-cpp">main.cpp</span>                <span class="comment"># Entry point, wires all components</span>
+│       ├── <span class="ext-cpp">camera_manager.cpp</span>      <span class="comment"># Multi-camera capture, thread affinity</span>
+│       ├── <span class="ext-cpp">frame_pipeline.cpp</span>      <span class="comment"># 4-stage pipeline with lock-free queues</span>
+│       ├── <span class="ext-cpp">render_engine.cpp</span>       <span class="comment"># Hand skeleton, face mesh, AR cube, HUD</span>
+│       ├── <span class="ext-cpp">shared_memory_bridge.cpp</span> <span class="comment"># POSIX SHM R/W, JSON landmark exchange</span>
+│       └── <span class="ext-cpp">telemetry_encoder.cpp</span>   <span class="comment"># JSON → ZMQ PUB</span>
+│
+├── <span class="dir">python_ai_layer/</span>            <span class="comment"># Layer 2 – Python 3.12</span>
+│   ├── <span class="ext-py">gesture_engine.py</span>           <span class="comment"># Orchestrator – SHM → classify → ZMQ</span>
+│   ├── <span class="ext-py">requirements.txt</span>
+│   ├── <span class="dir">tracking/</span>
+│   │   └── <span class="ext-py">mediapipe_tracker.py</span>    <span class="comment"># SHM reader, MP inference, SHM writer</span>
+│   └── <span class="dir">gesture/</span>
+│       ├── <span class="ext-py">gesture_classifier.py</span>   <span class="comment"># Rule-based + ML-ready classifier</span>
+│       ├── <span class="ext-py">smoothing_filter.py</span>     <span class="comment"># 1€ filter, LandmarkSmoother, velocity</span>
+│       └── <span class="ext-py">interaction_state_machine.py</span> <span class="comment"># FSM: IDLE→ACTIVE→HELD→RELEASED</span>
+│
+├── <span class="dir">go_control_plane/</span>           <span class="comment"># Layer 3 – Go 1.24</span>
+│   ├── <span class="ext-go">go.mod</span>
+│   ├── <span class="dir">cmd/server/</span>
+│   │   └── <span class="ext-go">main.go</span>                 <span class="comment"># Entry: ZMQ subs + Gin HTTP + WS hub</span>
+│   └── <span class="dir">internal/</span>
+│       ├── <span class="dir">ws/</span>
+│       │   └── <span class="ext-go">hub.go</span>              <span class="comment"># Gorilla WS hub, ping/pong, fan-out</span>
+│       ├── <span class="dir">telemetry/</span>
+│       │   └── <span class="ext-go">bus.go</span>              <span class="comment"># Pub/sub bus + ZMQ subscriber</span>
+│       ├── <span class="dir">metrics/</span>
+│       │   └── <span class="ext-go">store.go</span>            <span class="comment"># Rolling avg, system stats goroutine</span>
+│       └── <span class="dir">api/</span>
+│           └── <span class="ext-go">handlers.go</span>         <span class="comment"># /telemetry, /gestures, /system/health</span>
+│
+├── <span class="dir">python_gui_dashboard/</span>       <span class="comment"># Layer 4 – PySide6</span>
+│   └── <span class="ext-py">main_dashboard.py</span>           <span class="comment"># Full operator UI</span>
+│
+├── <span class="dir">shared/schemas/</span>
+│   └── <span class="ext-yaml">telemetry.schema.json</span>       <span class="comment"># Canonical JSON contracts</span>
+│
+└── <span class="dir">deploy/</span>
+    ├── <span class="ext-yaml">docker-compose.yml</span>
+    └── <span class="ext-yaml">systemd/</span>                    <span class="comment"># Unit files for each process</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 3: DATA FLOW -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <span class="section-number">03</span>
+    <h2>Data Flow &amp; IPC Design</h2>
+  </div>
+
+  <div class="flow-grid">
+    <div class="flow-box">
+      <div class="flow-title">Camera Capture</div>
+      <div class="flow-detail">V4L2 / DSHOW<br>1280×720 @ 60fps<br>MJPEG → BGR</div>
+    </div>
+    <div class="flow-box">
+      <div class="flow-title">SHM Bridge</div>
+      <div class="flow-detail">POSIX shm_open<br>Zero-copy pixels<br>Seq-counter sync</div>
+    </div>
+    <div class="flow-box">
+      <div class="flow-title">AI Inference</div>
+      <div class="flow-detail">MediaPipe Hands<br>FaceMesh 468pt<br>1€ smoothing</div>
+    </div>
+    <div class="flow-box">
+      <div class="flow-title">Control Plane</div>
+      <div class="flow-detail">ZMQ SUB → Bus<br>WS fan-out<br>REST APIs</div>
+    </div>
+  </div>
+
+  <h3>Shared Memory Layout (C++ ↔ Python)</h3>
+  <pre><code>[0..3]    Magic "ARX\0"
+[4..7]    Protocol version (uint32)
+[8..15]   Write sequence counter  ← C++ increments after writing a frame
+[16..23]  Read sequence counter   ← Python increments after writing landmarks
+[24..27]  Frame width  (uint32)
+[28..31]  Frame height (uint32)
+[32..35]  Frame stride (uint32, bytes/row)
+[36..67]  FrameMeta (32 bytes, fixed)
+[68 ..]   RGB pixels  (width × height × 3 bytes)
+[68+P..]  Landmark JSON (64 KB, null-terminated UTF-8)</code></pre>
+
+  <p>The two sequence counters provide a wait-free handshake with <strong>no mutex</strong>:
+  the C++ engine writes a frame and bumps <span class="mono">write_seq</span>;
+  Python detects the change, runs inference, writes landmark JSON, then bumps
+  <span class="mono">read_seq</span>; C++ reads back when it sees <span class="mono">read_seq ≠ write_seq</span>.</p>
+
+  <h3>ZeroMQ Topology</h3>
+  <table>
+    <tr><th>Port</th><th>Socket</th><th>Producer</th><th>Consumer</th><th>Content</th></tr>
+    <tr><td class="mono">5556</td><td>PUB / SUB</td><td>C++ Vision</td><td>Go Control</td><td>Full TelemetryPacket JSON</td></tr>
+    <tr><td class="mono">5557</td><td>PUB / SUB</td><td>Python AI</td><td>Go Control</td><td>GestureEvent + frame_telemetry JSON</td></tr>
+  </table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 4: C++ LAYER DETAILS -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <span class="section-number">04</span>
+    <h2>C++ Vision Engine</h2>
+  </div>
+
+  <div class="two-col">
+    <div class="panel cyan-accent">
+      <h3 style="margin-top:0">Pipeline Stages</h3>
+      <ul>
+        <li><strong>Stage 0</strong> – Camera capture (per-camera thread, CPU affinity)</li>
+        <li><strong>Stage 1</strong> – Pre-process: resize to AI res, BGR→RGB</li>
+        <li><strong>Stage 2</strong> – SHM publish + landmark read-back</li>
+        <li><strong>Stage 3</strong> – AR compose: skeleton, face, cube, HUD</li>
+        <li><strong>Stage 4</strong> – Display via <span class="mono">cv::imshow</span></li>
+      </ul>
+    </div>
+    <div class="panel magenta-accent">
+      <h3 style="margin-top:0">Thread Safety</h3>
+      <ul>
+        <li>Lock-free <span class="mono">RingBuffer&lt;T,N&gt;</span> between every stage (power-of-2 size)</li>
+        <li>Atomic sequence counters for SHM handshake</li>
+        <li>No mutexes in the hot path</li>
+        <li>Drop policy: oldest frame dropped when queue full</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>AR Rendering Primitives</h3>
+  <table>
+    <tr><th>Primitive</th><th>Method</th><th>Notes</th></tr>
+    <tr><td>Hand skeleton</td><td><span class="mono">cv::line</span> + <span class="mono">cv::circle</span></td><td>21 joints, left=cyan / right=magenta</td></tr>
+    <tr><td>Face mesh</td><td>1px dot per landmark</td><td>468 points, dim white</td></tr>
+    <tr><td>AR Cube</td><td>Analytic Y-rotation projection</td><td>Anchored to wrist, depth-scaled, animated</td></tr>
+    <tr><td>Interaction circles</td><td>Concentric ellipses</td><td>Depth-modulated radius at 5 fingertips</td></tr>
+    <tr><td>HUD brackets</td><td>Corner lines</td><td>Frame ID, FPS counter</td></tr>
+  </table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 5: PYTHON AI LAYER -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <span class="section-number">05</span>
+    <h2>Python AI / Gesture Layer</h2>
+  </div>
+
+  <div class="two-col">
+    <div class="panel green-accent">
+      <h3 style="margin-top:0">Gesture Classifier</h3>
+      <ul>
+        <li><strong>Open hand</strong> – 4+ fingers extended</li>
+        <li><strong>Closed fist</strong> – 0 extended + thumb tucked</li>
+        <li><strong>Point up</strong> – index only, tip above MCP</li>
+        <li><strong>V-sign</strong> – index + middle only</li>
+        <li><strong>Pinch</strong> – thumb-tip ↔ index-tip &lt; 25% of hand span</li>
+        <li><strong>Swipe L/R</strong> – velocity &gt; 1.2 u/s, horizontal dominant</li>
+        <li><strong>Zoom / Rotate</strong> – two-hand dist / angle delta</li>
+      </ul>
+    </div>
+    <div class="panel orange-accent">
+      <h3 style="margin-top:0">1€ Smoothing Filter</h3>
+      <p>Adaptive low-pass filter by Casiez et al. 2012:</p>
+      <ul>
+        <li>Reduces jitter at rest (low cutoff)</li>
+        <li>Reduces lag during fast motion (high cutoff)</li>
+        <li>Applied independently to all 21×3 landmark components</li>
+        <li>Tunable: <span class="mono">min_cutoff=1.5 Hz</span>, <span class="mono">β=0.01</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Interaction State Machine</h3>
+  <pre><code>        ┌────────┐   gesture detected (conf ≥ 0.55)
+        │  IDLE  │ ─────────────────────────────────────► GESTURE_ACTIVE
+        └────────┘                                              │
+             ▲                                          hold ≥ 0.4s │
+             │ release timeout (0.25s)                             ▼
+    GESTURE_RELEASED ◄──────────────────────── GESTURE_HELD
+             │                                      │
+             │  (fires RELEASED event)     fires HELD event
+             └──────────────────────────────────────┘
+                  resets to IDLE</code></pre>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 6: GO CONTROL PLANE -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <span class="section-number">06</span>
+    <h2>Go Control Plane</h2>
+  </div>
+
+  <h3>REST API Endpoints</h3>
+  <table>
+    <tr><th>Method</th><th>Path</th><th>Description</th></tr>
+    <tr>
+      <td class="badge-green">GET</td>
+      <td class="mono">/ws</td>
+      <td>WebSocket – real-time all-events stream (fan-out to all clients)</td>
+    </tr>
+    <tr>
+      <td class="badge-green">GET</td>
+      <td class="mono">/api/telemetry</td>
+      <td>Last 50 telemetry packets as JSON array</td>
+    </tr>
+    <tr>
+      <td class="badge-green">GET</td>
+      <td class="mono">/api/telemetry/metrics</td>
+      <td>Aggregated per-source latency, packet counts, memory, goroutines</td>
+    </tr>
+    <tr>
+      <td class="badge-green">GET</td>
+      <td class="mono">/api/gestures</td>
+      <td>Full gesture event history (last 1000)</td>
+    </tr>
+    <tr>
+      <td class="badge-green">GET</td>
+      <td class="mono">/api/gestures/latest</td>
+      <td>Most recent gesture event</td>
+    </tr>
+    <tr>
+      <td class="badge-green">GET</td>
+      <td class="mono">/api/system/health</td>
+      <td>Uptime, heap, goroutine count, per-source status</td>
+    </tr>
+    <tr>
+      <td class="badge-green">GET</td>
+      <td class="mono">/api/system/ping</td>
+      <td>Liveness probe (returns ms timestamp)</td>
+    </tr>
+  </table>
+
+  <h3>WebSocket Fan-Out Design</h3>
+  <p>The <span class="mono">Hub</span> maintains a goroutine-safe map of connected clients.
+  Each client has a <span class="mono">send chan []byte</span> (capacity 256).
+  Broadcast drains queued messages in a single WebSocket write frame.
+  Slow clients are silently dropped (non-blocking send) — the pipeline is never back-pressured.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 7: PERFORMANCE TARGETS -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <span class="section-number">07</span>
+    <h2>Performance Targets &amp; Optimisations</h2>
+  </div>
+
+  <table>
+    <tr><th>Metric</th><th>Target</th><th>Mechanism</th></tr>
+    <tr><td>Camera → render FPS</td><td class="badge-green">30–60 fps</td><td>Lock-free pipeline, minimal copy, MJPEG input</td></tr>
+    <tr><td>Gesture latency</td><td class="badge-green">&lt; 50 ms</td><td>SHM zero-copy + seq-counter handshake</td></tr>
+    <tr><td>WS broadcast latency</td><td class="badge-cyan">&lt; 5 ms</td><td>Go goroutine fan-out, 256-msg buffered channels</td></tr>
+    <tr><td>AI inference</td><td class="badge-orange">8–12 ms</td><td>MediaPipe WASM/TFLite, batched landmark reads</td></tr>
+    <tr><td>Memory (C++)</td><td class="badge-green">&lt; 200 MB</td><td>RingBuffer fixed allocation, no frame heap alloc</td></tr>
+    <tr><td>CPU overhead (Go)</td><td class="badge-green">&lt; 2%</td><td>Event-driven, no polling; ZMQ DONTWAIT</td></tr>
+  </table>
+
+  <h3>GPU Acceleration Notes</h3>
+  <ul>
+    <li>Build with <span class="mono">-DENABLE_CUDA=ON</span> to activate CUDA paths in OpenCV (e.g. <span class="mono">cv::cuda::resize</span>)</li>
+    <li>MediaPipe supports GPU delegate on Android/Linux via <span class="mono">gpu_origin=MediaPipeTasksRunningModeGPU</span></li>
+    <li>For Jetson Nano/Orin: use <span class="mono">cv::cuda::GpuMat</span> for pre-processing, pass CPU copy to SHM only</li>
+  </ul>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 8: BUILD INSTRUCTIONS -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <span class="section-number">08</span>
+    <h2>Build &amp; Deployment</h2>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h4>C++ Vision Engine</h4>
+        <pre><code>sudo apt install libopencv-dev libzmq3-dev libspdlog-dev nlohmann-json3-dev
+cd arx-platform/cpp_vision_engine
+cmake -B build -DCMAKE_BUILD_TYPE=Release -DENABLE_ZEROMQ=ON
+cmake --build build -j$(nproc)
+./build/arx_vision_engine 0          # camera index</code></pre>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h4>Python AI Layer</h4>
+        <pre><code>cd arx-platform/python_ai_layer
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+python gesture_engine.py --no-shm --verbose   # standalone webcam mode
+# OR
+python gesture_engine.py                      # reads from C++ SHM</code></pre>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h4>Go Control Plane</h4>
+        <pre><code>cd arx-platform/go_control_plane
+go mod tidy
+go build ./cmd/server -o arx_control_plane
+./arx_control_plane
+# Listening on :8080
+# /ws  /api/telemetry  /api/gestures  /api/system/health</code></pre>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <h4>Python GUI Dashboard</h4>
+        <pre><code>pip install PySide6 opencv-python pyzmq
+python arx-platform/python_gui_dashboard/main_dashboard.py \
+    --ws ws://localhost:8080/ws</code></pre>
+      </div>
+    </div>
+  </div>
+
+  <h3>Launch Order</h3>
+  <p>The layers are independent processes, but the recommended start order is:</p>
+  <pre><code>1. arx_vision_engine    (creates SHM, starts ZMQ PUB on 5556)
+2. gesture_engine.py    (reads SHM, starts ZMQ PUB on 5557)
+3. arx_control_plane    (SUB on 5556+5557, HTTP on 8080)
+4. main_dashboard.py    (WS to localhost:8080)</code></pre>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 9: PRODUCTION SCALABILITY -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <span class="section-number">09</span>
+    <h2>Production &amp; Scalability Notes</h2>
+  </div>
+
+  <div class="two-col">
+    <div class="panel cyan-accent">
+      <h3 style="margin-top:0">Horizontal Scaling</h3>
+      <ul>
+        <li>Run one C++ + Python pair per camera node</li>
+        <li>All nodes publish to a central Go cluster behind a ZMQ XSUB/XPUB proxy</li>
+        <li>Go control plane is stateless → scale behind a load balancer</li>
+        <li>WebSocket sessions are sticky (use nginx <span class="mono">ip_hash</span>)</li>
+      </ul>
+    </div>
+    <div class="panel green-accent">
+      <h3 style="margin-top:0">Reliability</h3>
+      <ul>
+        <li>All drop policies are explicit (never block pipeline)</li>
+        <li>SHM version field allows hot rolling of Python AI layer</li>
+        <li>Go WS hub auto-evicts dead clients on ping timeout</li>
+        <li>Python FSM listeners are wrapped in try/except (never crash engine)</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="two-col" style="margin-top:16px">
+    <div class="panel orange-accent">
+      <h3 style="margin-top:0">Observability</h3>
+      <ul>
+        <li><span class="mono">GET /api/telemetry/metrics</span> exposes rolling averages</li>
+        <li><span class="mono">GET /api/system/health</span> suitable for Prometheus scraping</li>
+        <li>Structured JSON logging via <span class="mono">spdlog</span> (C++) and <span class="mono">zap</span> (Go)</li>
+        <li>Per-pipeline drop counters surfaced in telemetry</li>
+      </ul>
+    </div>
+    <div class="panel magenta-accent">
+      <h3 style="margin-top:0">Extension Points</h3>
+      <ul>
+        <li>Swap rule-based classifier for TFLite / TorchScript model in <span class="mono">gesture_classifier.py</span></li>
+        <li>Add RTMP/HLS output in C++ Stage 4</li>
+        <li>Replace SHM with gRPC streaming for cross-machine deployment</li>
+        <li>Add Redis pub/sub in Go for distributed event bus</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+</div><!-- /content -->
+
+<footer>
+  ARX PLATFORM  •  ARCHITECTURE REFERENCE v2.0  •  PRODUCTION-GRADE DISTRIBUTED VISION SYSTEM
+</footer>
+
+</body>
+</html>

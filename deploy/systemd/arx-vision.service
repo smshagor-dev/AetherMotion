@@ -1,0 +1,44 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# arx-vision.service  –  C++ Vision Engine
+# Install to: /etc/systemd/system/arx-vision.service
+# ─────────────────────────────────────────────────────────────────────────────
+# [Unit]
+# Description=ARX Vision Engine (C++ / OpenCV)
+# After=network.target
+# Wants=arx-ai.service
+#
+# [Service]
+# Type=simple
+# User=arx
+# Group=video
+# ExecStart=/usr/local/bin/arx_vision_engine 0
+# Restart=on-failure
+# RestartSec=3s
+# StandardOutput=journal
+# StandardError=journal
+# Environment=ARX_ZMQ_PORT=5556
+# LimitNOFILE=65536
+#
+# [Install]
+# WantedBy=multi-user.target
+# ─────────────────────────────────────────────────────────────────────────────
+
+[Unit]
+Description=ARX Vision Engine (C++ / OpenCV)
+After=network.target
+Wants=arx-ai.service
+
+[Service]
+Type=simple
+User=arx
+Group=video
+ExecStart=/usr/local/bin/arx_vision_engine 0
+Restart=on-failure
+RestartSec=3s
+StandardOutput=journal
+StandardError=journal
+Environment=ARX_ZMQ_PORT=5556
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

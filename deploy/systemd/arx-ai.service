@@ -1,0 +1,22 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# arx-ai.service  –  Python AI / Gesture Layer
+# ─────────────────────────────────────────────────────────────────────────────
+
+[Unit]
+Description=ARX AI / Gesture Layer (Python / MediaPipe)
+After=arx-vision.service
+Requires=arx-vision.service
+
+[Service]
+Type=simple
+User=arx
+WorkingDirectory=/opt/arx/python_ai_layer
+ExecStart=/opt/arx/python_ai_layer/.venv/bin/python gesture_engine.py
+Restart=on-failure
+RestartSec=5s
+StandardOutput=journal
+StandardError=journal
+Environment=ARX_ZMQ_PORT=5557
+
+[Install]
+WantedBy=multi-user.target

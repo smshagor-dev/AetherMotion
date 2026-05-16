@@ -1,0 +1,96 @@
+{
+  "$comment": "ARX Platform – Canonical JSON schemas and example packets",
+
+  "telemetry_packet_example": {
+    "type": "frame_telemetry",
+    "source": "cpp_vision_engine",
+    "ts": 1716825600123456,
+    "frame": {
+      "id": 4821,
+      "capture_us": 1716825600110000,
+      "process_us": 1716825600118000,
+      "width": 1280,
+      "height": 720,
+      "fps": 59.8,
+      "dropped": 0
+    },
+    "gesture": {
+      "type": "pinch",
+      "confidence": 0.91,
+      "origin": [0.47, 0.38]
+    },
+    "hands": [
+      {
+        "is_left": false,
+        "confidence": 0.97,
+        "wrist": [0.51, 0.72, -0.03],
+        "fingertips": [
+          [0.47, 0.38, -0.12],
+          [0.46, 0.36, -0.14],
+          [0.55, 0.40, -0.08],
+          [0.58, 0.45, -0.06],
+          [0.61, 0.52, -0.04]
+        ]
+      }
+    ],
+    "perf": {
+      "latency_ms": 18.4,
+      "cpu_pct": 34.2,
+      "gpu_pct": 21.7
+    }
+  },
+
+  "gesture_event_schema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "required": ["type", "event_kind", "gesture", "confidence", "timestamp"],
+    "properties": {
+      "type":       { "const": "gesture_event" },
+      "event_kind": { "enum": ["STARTED", "HELD", "RELEASED", "CHANGED"] },
+      "gesture": {
+        "enum": [
+          "none", "open_hand", "closed_fist", "pinch",
+          "swipe_left", "swipe_right", "two_hand",
+          "rotate", "zoom", "point_up", "v_sign"
+        ]
+      },
+      "confidence": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+      "duration":   { "type": "number", "minimum": 0.0 },
+      "timestamp":  { "type": "number" },
+      "source":     { "type": "string" }
+    }
+  },
+
+  "gesture_event_example": {
+    "type": "gesture_event",
+    "event_kind": "HELD",
+    "gesture": "pinch",
+    "confidence": 0.91,
+    "duration": 0.524,
+    "timestamp": 1716825601.382,
+    "source": "python_ai_layer"
+  },
+
+  "health_response_example": {
+    "status": "ok",
+    "version": "2.0.0",
+    "uptime_s": 3820.5,
+    "metrics": {
+      "sources": {
+        "cpp_vision_engine": {
+          "packets": 144482,
+          "latency_ms": 19.3,
+          "last_seen": 1716825600987
+        },
+        "python_ai_layer": {
+          "packets": 72240,
+          "latency_ms": 6.1,
+          "last_seen": 1716825600992
+        }
+      },
+      "heap_mb": 28.4,
+      "goroutines": 14,
+      "uptime_s": 3820.5
+    }
+  }
+}

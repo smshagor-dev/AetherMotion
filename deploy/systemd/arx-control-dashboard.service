@@ -1,0 +1,50 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# arx-control.service  –  Go Control Plane
+# ─────────────────────────────────────────────────────────────────────────────
+
+[Unit]
+Description=ARX Control Plane (Go / Gin / WebSocket)
+After=arx-ai.service
+Requires=arx-ai.service
+
+[Service]
+Type=simple
+User=arx
+ExecStart=/usr/local/bin/arx_control_plane
+Restart=on-failure
+RestartSec=3s
+StandardOutput=journal
+StandardError=journal
+Environment=ARX_CPP_ZMQ=tcp://127.0.0.1:5556
+Environment=ARX_AI_ZMQ=tcp://127.0.0.1:5557
+Environment=GIN_MODE=release
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# arx-dashboard.service  –  Python GUI Dashboard
+# ─────────────────────────────────────────────────────────────────────────────
+
+[Unit]
+Description=ARX Operator Dashboard (PySide6)
+After=arx-control.service
+Requires=arx-control.service
+
+[Service]
+Type=simple
+User=arx
+WorkingDirectory=/opt/arx/python_gui_dashboard
+# For workstation: set DISPLAY to the active X11 display
+Environment=DISPLAY=:0
+Environment=ARX_WS_URL=ws://127.0.0.1:8080/ws
+ExecStart=/opt/arx/python_gui_dashboard/.venv/bin/python main_dashboard.py
+Restart=on-failure
+RestartSec=5s
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

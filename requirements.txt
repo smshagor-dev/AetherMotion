@@ -1,0 +1,12 @@
+# Root Python dependencies for the runnable local stack.
+# Recommended interpreter: Python 3.11 - 3.13.
+# Python 3.14 currently does not have a supported MediaPipe wheel, so the
+# AI layer will not install or run fully on 3.14 yet.
+
+numpy>=1.26.0
+opencv-python>=4.9.0
+psutil>=5.9.0
+pyzmq>=26.0.0
+websocket-client>=1.8.0
+PySide6>=6.7.0
+mediapipe>=0.10.14; python_version < "3.14"
