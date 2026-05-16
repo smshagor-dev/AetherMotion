@@ -1,0 +1,10 @@
+D:\Final Project\arx-platform-v2.0\arx-platform\engine\core\application.cpp;D:\Final Project\arx-platform-v2.0\arx-platform\build_qt\arx_engine.dir\Debug\application.obj
+D:\Final Project\arx-platform-v2.0\arx-platform\engine\threading\thread_pool.cpp;D:\Final Project\arx-platform-v2.0\arx-platform\build_qt\arx_engine.dir\Debug\thread_pool.obj
+D:\Final Project\arx-platform-v2.0\arx-platform\engine\profiling\frame_profiler.cpp;D:\Final Project\arx-platform-v2.0\arx-platform\build_qt\arx_engine.dir\Debug\frame_profiler.obj
+D:\Final Project\arx-platform-v2.0\arx-platform\engine\profiling\runtime_metrics.cpp;D:\Final Project\arx-platform-v2.0\arx-platform\build_qt\arx_engine.dir\Debug\runtime_metrics.obj
+D:\Final Project\arx-platform-v2.0\arx-platform\engine\config\runtime_config.cpp;D:\Final Project\arx-platform-v2.0\arx-platform\build_qt\arx_engine.dir\Debug\runtime_config.obj
+D:\Final Project\arx-platform-v2.0\arx-platform\engine\diagnostics\health_monitor.cpp;D:\Final Project\arx-platform-v2.0\arx-platform\build_qt\arx_engine.dir\Debug\health_monitor.obj
+D:\Final Project\arx-platform-v2.0\arx-platform\engine\telemetry\telemetry_encoder.cpp;D:\Final Project\arx-platform-v2.0\arx-platform\build_qt\arx_engine.dir\Debug\telemetry_encoder.obj
+D:\Final Project\arx-platform-v2.0\arx-platform\engine\runtime\runtime_context.cpp;D:\Final Project\arx-platform-v2.0\arx-platform\build_qt\arx_engine.dir\Debug\runtime_context.obj
+D:\Final Project\arx-platform-v2.0\arx-platform\apps\runtime_cli.cpp;D:\Final Project\arx-platform-v2.0\arx-platform\build_qt\arx_engine.dir\Debug\runtime_cli.obj
+D:\Final Project\arx-platform-v2.0\arx-platform\vision\tracking\model_asset_validator.cpp;D:\Final Project\arx-platform-v2.0\arx-platform\build_qt\arx_engine.dir\Debug\model_asset_validator.obj

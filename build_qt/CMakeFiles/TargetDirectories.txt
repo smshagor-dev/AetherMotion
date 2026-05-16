@@ -1,0 +1,15 @@
+D:/Final Project/arx-platform-v2.0/arx-platform/build_qt/CMakeFiles/arx_engine.dir
+D:/Final Project/arx-platform-v2.0/arx-platform/build_qt/CMakeFiles/arx_vision.dir
+D:/Final Project/arx-platform-v2.0/arx-platform/build_qt/CMakeFiles/arx_ar.dir
+D:/Final Project/arx-platform-v2.0/arx-platform/build_qt/CMakeFiles/arx_replay.dir
+D:/Final Project/arx-platform-v2.0/arx-platform/build_qt/CMakeFiles/arx_runtime.dir
+D:/Final Project/arx-platform-v2.0/arx-platform/build_qt/CMakeFiles/arx_test_filters.dir
+D:/Final Project/arx-platform-v2.0/arx-platform/build_qt/CMakeFiles/arx_test_gestures.dir
+D:/Final Project/arx-platform-v2.0/arx-platform/build_qt/CMakeFiles/arx_test_replay.dir
+D:/Final Project/arx-platform-v2.0/arx-platform/build_qt/CMakeFiles/arx_test_runtime.dir
+D:/Final Project/arx-platform-v2.0/arx-platform/build_qt/CMakeFiles/arx_test_transport.dir
+D:/Final Project/arx-platform-v2.0/arx-platform/build_qt/CMakeFiles/arx_test_cli.dir
+D:/Final Project/arx-platform-v2.0/arx-platform/build_qt/CMakeFiles/arx_test_tracking_setup.dir
+D:/Final Project/arx-platform-v2.0/arx-platform/build_qt/CMakeFiles/RUN_TESTS.dir
+D:/Final Project/arx-platform-v2.0/arx-platform/build_qt/CMakeFiles/ALL_BUILD.dir
+D:/Final Project/arx-platform-v2.0/arx-platform/build_qt/CMakeFiles/ZERO_CHECK.dir

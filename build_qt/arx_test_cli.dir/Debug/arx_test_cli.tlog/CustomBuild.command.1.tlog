@@ -1,0 +1,10 @@
+^D:\FINAL PROJECT\ARX-PLATFORM-V2.0\ARX-PLATFORM\CMAKELISTS.TXT
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" "-SD:/Final Project/arx-platform-v2.0/arx-platform" "-BD:/Final Project/arx-platform-v2.0/arx-platform/build_qt" --check-stamp-file "D:/Final Project/arx-platform-v2.0/arx-platform/build_qt/CMakeFiles/generate.stamp"
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

@@ -13,3 +13,4 @@ env/
 
 build/
 dist/
+sessions/*.log
