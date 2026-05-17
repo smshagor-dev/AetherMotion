@@ -22,8 +22,14 @@ void handle_sigint(int) {
 }
 
 int main(int argc, char** argv) {
-    auto config = arx::engine::config::load_runtime_config("configs/arx_v3_runtime.json");
     const auto options = arx::apps::parse_runtime_cli(argc, argv);
+    const auto config_path =
+        (options.mode == arx::engine::RuntimeMode::kGraphicalFusion ||
+         options.mode == arx::engine::RuntimeMode::kFusionReplay ||
+         options.mode == arx::engine::RuntimeMode::kValidateReplay)
+            ? "configs/arx_graphical_fusion.json"
+            : "configs/arx_v3_runtime.json";
+    auto config = arx::engine::config::load_runtime_config(config_path);
     if (options.camera_id.has_value()) {
         config.camera_id = *options.camera_id;
     }
@@ -32,6 +38,20 @@ int main(int argc, char** argv) {
     config.tracking.debug_gestures = options.debug_gestures;
     config.tracking.disable_debounce = options.disable_debounce;
     config.tracking.gesture_threshold = options.gesture_threshold;
+    auto session_path = options.session_path;
+    if (session_path.empty() && options.mode == arx::engine::RuntimeMode::kFusionReplay) {
+        session_path = config.fusion.replay_output_path;
+    }
+    const auto validation = arx::engine::config::validate_runtime_config(config);
+    if (!validation.valid()) {
+        std::cerr << validation.summary() << '\n';
+        return 2;
+    }
+    if (options.mode == arx::engine::RuntimeMode::kGraphicalFusion &&
+        config.fusion.provider_type == "synthetic") {
+        std::cerr << "config invalid:\n - synthetic provider is not allowed in production graphical-fusion mode\n";
+        return 2;
+    }
 
     if (options.check_models) {
         const auto report = arx::vision::tracking::validate_tracking_models(config);
@@ -41,7 +61,10 @@ int main(int argc, char** argv) {
 
     std::cout << "Starting " << config.engine_name << '\n';
     std::cout << "Mode: " << arx::apps::runtime_mode_name(options.mode) << '\n';
-    arx::engine::Application app(config, options.mode, options.session_path);
+    if (options.deprecated_fusion_demo_alias) {
+        std::cerr << "[ARX][warn] --mode fusion-demo is deprecated; use --mode graphical-fusion\n";
+    }
+    arx::engine::Application app(config, options.mode, session_path);
     g_runtime_app = &app;
     std::signal(SIGINT, handle_sigint);
     const int code = app.run();

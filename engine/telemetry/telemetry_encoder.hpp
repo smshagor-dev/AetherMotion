@@ -21,11 +21,16 @@ struct RuntimeTelemetryFrame {
     double smoothing_latency_ms{0.0};
     double gesture_latency_ms{0.0};
     double render_latency_ms{0.0};
+    double camera_fps{0.0};
+    double end_to_end_latency_ms{0.0};
     std::size_t queue_depth{0};
     std::size_t queue_capacity{0};
     bool model_loaded{false};
     std::size_t raw_hand_count{0};
     float top_hand_confidence{0.0f};
+    float landmark_confidence{0.0f};
+    float gesture_confidence{0.0f};
+    std::string provider_health;
     std::string tracker_state;
     std::string tracker_error;
     std::string hand_model_path;

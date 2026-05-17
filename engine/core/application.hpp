@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <string>
 
+#include "ar/fusion/fusion_compositor.hpp"
 #include "ar/interactions/interaction_system.hpp"
 #include "ar/scene/scene_graph.hpp"
 #include "engine/runtime/runtime_context.hpp"
@@ -34,9 +35,11 @@ public:
 private:
     bool tick(double dt_seconds);
     int run_tracker_smoke();
+    int run_validate_replay();
     bool check_model_assets(bool fail_on_missing);
     void log_gesture_debug(const vision::FrameLandmarks& frame,
                            const vision::GestureEngine::Output& output) const;
+    std::optional<std::string> fusion_event_name(const vision::GestureEngine::Output& output) const;
     replay::SessionFrame make_live_frame(double dt_seconds);
     std::optional<vision::tracking::ModelValidationReport> model_report_;
 
@@ -50,16 +53,16 @@ private:
     bool pull_live_frame(replay::SessionFrame& source_frame, double dt_seconds, double& camera_latency_ms, double& inference_latency_ms);
     bool run_tracker_smoke_image();
     void render_live_frame(const vision::tracking::VideoFrame& frame,
-                           const vision::tracking::TrackingResult& tracking,
+                           const vision::landmarks::LandmarkProviderOutput& tracking,
                            const vision::GestureEngine::Output& output,
+                           const ar::fusion::ARFusionFrame& fusion_frame,
                            double& render_latency_ms);
 
     std::unique_ptr<vision::camera::CameraManager> camera_manager_;
-    std::unique_ptr<vision::tracking::LandmarkRuntimeBridge> tracker_bridge_;
+    std::unique_ptr<vision::landmarks::LandmarkProvider> landmark_provider_;
     std::unique_ptr<LiveFramePool> frame_pool_;
     std::unique_ptr<LiveFrameQueue> frame_queue_;
     std::optional<vision::tracking::VideoFrame> last_live_frame_;
-    std::optional<vision::tracking::TrackingResult> last_tracking_result_;
     std::unique_ptr<ar::renderer::RenderEngine> live_renderer_;
     std::uint64_t last_queue_drop_count_{0};
 #endif
@@ -67,10 +70,12 @@ private:
     RuntimeContext context_;
     vision::GestureEngine gesture_engine_;
     vision::SpatialInteractionEngine spatial_engine_;
+    ar::fusion::FusionCompositor fusion_compositor_;
     ar::SceneGraph scene_;
     ar::InteractionSystem interaction_system_;
     replay::SessionRecorder recorder_;
     replay::SessionPlayer player_;
+    std::optional<vision::landmarks::LandmarkProviderOutput> last_tracking_result_;
     std::filesystem::path session_path_;
     bool initialized_{false};
     bool shutdown_requested_{false};

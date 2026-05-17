@@ -400,3 +400,4 @@ Still pending in the broader roadmap:
 - [docs/V2_TO_V3_MIGRATION.md](</d:/Final Project/arx-platform-v2.0/arx-platform/docs/V2_TO_V3_MIGRATION.md>)
 - [docs/WINDOWS_NATIVE_TRACKING_SETUP.md](</d:/Final Project/arx-platform-v2.0/arx-platform/docs/WINDOWS_NATIVE_TRACKING_SETUP.md>)
 - [docs/MEDIAPIPE_WINDOWS_BUILD.md](</d:/Final Project/arx-platform-v2.0/arx-platform/docs/MEDIAPIPE_WINDOWS_BUILD.md>)
+- [docs/GRAPHICAL_FUSION_ARX_PRODUCTION.md](</d:/Final Project/arx-platform-v2.0/arx-platform/docs/GRAPHICAL_FUSION_ARX_PRODUCTION.md>)

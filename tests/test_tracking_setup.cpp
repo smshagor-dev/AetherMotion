@@ -77,6 +77,11 @@ int main() {
     frame.tracker_error = "face model not found";
     frame.model_loaded = false;
     frame.raw_hand_count = 0;
+    frame.camera_fps = 60.0;
+    frame.end_to_end_latency_ms = 15.0;
+    frame.landmark_confidence = 0.0f;
+    frame.gesture_confidence = 0.0f;
+    frame.provider_health = "degraded";
     frame.hand_model_path = (root / "hand_landmarker.task").string();
     frame.face_model_path = (root / "face_landmarker.task").string();
 
@@ -85,6 +90,8 @@ int main() {
     ok &= expect_true(encoded.find("\"tracking\"") != std::string::npos, "Telemetry should encode tracking section");
     ok &= expect_true(encoded.find("model_missing") != std::string::npos, "Telemetry should include tracker state");
     ok &= expect_true(encoded.find("face model not found") != std::string::npos, "Telemetry should include tracker error");
+    ok &= expect_true(encoded.find("\"camera_fps\":60") != std::string::npos, "Telemetry should include camera fps");
+    ok &= expect_true(encoded.find("\"provider_health\":\"degraded\"") != std::string::npos, "Telemetry should include provider health");
 
     fs::remove_all(root);
     fs::remove("test_runtime_config.json");

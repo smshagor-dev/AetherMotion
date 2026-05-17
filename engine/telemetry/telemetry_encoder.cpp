@@ -19,6 +19,10 @@ std::string TelemetryEncoder::encode_frame(const RuntimeTelemetryFrame& frame) c
         << "\"recording\":" << (frame.recording ? "true" : "false") << ","
         << "\"replaying\":" << (frame.replaying ? "true" : "false") << ","
         << "\"dropped_frames\":" << frame.dropped_frames << ","
+        << "\"camera_fps\":" << frame.camera_fps << ","
+        << "\"landmark_confidence\":" << frame.landmark_confidence << ","
+        << "\"gesture_confidence\":" << frame.gesture_confidence << ","
+        << "\"provider_health\":\"" << frame.provider_health << "\","
         << "\"queue\":{\"depth\":" << frame.queue_depth << ",\"capacity\":" << frame.queue_capacity << "},"
         << "\"tracking\":{\"state\":\"" << frame.tracker_state << "\","
         << "\"error\":\"" << frame.tracker_error << "\","
@@ -33,6 +37,7 @@ std::string TelemetryEncoder::encode_frame(const RuntimeTelemetryFrame& frame) c
         << ",\"smoothing_ms\":" << frame.smoothing_latency_ms
         << ",\"gesture_ms\":" << frame.gesture_latency_ms
         << ",\"render_ms\":" << frame.render_latency_ms
+        << ",\"end_to_end_latency_ms\":" << frame.end_to_end_latency_ms
         << "},\"profiler\":" << (frame.profiler_snapshot.empty() ? "{}" : frame.profiler_snapshot)
         << "}";
     return out.str();

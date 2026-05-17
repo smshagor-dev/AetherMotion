@@ -23,6 +23,9 @@ enum class RuntimeMode : std::uint8_t {
     kRecord = 1,
     kReplay = 2,
     kTrackerSmoke = 3,
+    kGraphicalFusion = 4,
+    kFusionReplay = 5,
+    kValidateReplay = 6,
 };
 
 struct RuntimeStats {

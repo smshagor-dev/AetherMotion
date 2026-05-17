@@ -4,6 +4,7 @@
 #include <opencv2/core.hpp>
 #endif
 
+#include "ar/fusion/fusion_types.hpp"
 #include "vision/landmarks/landmark_types.hpp"
 
 namespace arx::ar::renderer {
@@ -27,6 +28,7 @@ public:
                           std::size_t hand_count = 0,
                           float top_hand_confidence = 0.0f,
                           bool model_loaded = false);
+    void draw_fusion_overlay(cv::Mat& frame, const ar::fusion::ARFusionFrame& fusion);
 
 private:
     int width_{1280};

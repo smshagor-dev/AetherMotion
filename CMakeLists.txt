@@ -52,6 +52,8 @@ add_library(arx_vision
     vision/smoothing/one_euro_filter.cpp
     vision/gesture_engine/gesture_classifier.cpp
     vision/spatial_analysis/spatial_interaction_engine.cpp
+    vision/landmarks/synthetic_landmark_provider.cpp
+    vision/landmarks/external_landmark_provider.cpp
 )
 target_include_directories(arx_vision PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(arx_vision PUBLIC arx_engine)
@@ -59,6 +61,7 @@ target_link_libraries(arx_vision PUBLIC arx_engine)
 add_library(arx_ar
     ar/scene/scene_graph.cpp
     ar/interactions/interaction_system.cpp
+    ar/fusion/fusion_compositor.cpp
 )
 target_include_directories(arx_ar PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(arx_ar PUBLIC arx_engine arx_vision)
@@ -117,6 +120,7 @@ if(OpenCV_FOUND)
         target_compile_definitions(arx_engine PUBLIC ARX_HAS_MEDIAPIPE=1)
     endif()
     add_library(arx_runtime_vision
+        vision/camera/frame_source.cpp
         vision/camera/camera_manager.cpp
         vision/tracking/landmark_runtime_bridge.cpp
         vision/tracking/mediapipe_hand_tracker.cpp
@@ -215,6 +219,24 @@ add_test(NAME arx_test_cli COMMAND arx_test_cli)
 add_executable(arx_test_tracking_setup tests/test_tracking_setup.cpp)
 target_link_libraries(arx_test_tracking_setup PRIVATE arx_engine)
 add_test(NAME arx_test_tracking_setup COMMAND arx_test_tracking_setup)
+
+add_executable(arx_test_landmark_provider tests/test_landmark_provider.cpp)
+target_sources(arx_test_landmark_provider PRIVATE vision/landmarks/synthetic_landmark_provider.cpp)
+target_include_directories(arx_test_landmark_provider PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+add_test(NAME arx_test_landmark_provider COMMAND arx_test_landmark_provider)
+
+add_executable(arx_test_fusion tests/test_fusion.cpp)
+target_link_libraries(arx_test_fusion PRIVATE arx_replay arx_ar arx_vision arx_engine)
+add_test(NAME arx_test_fusion COMMAND arx_test_fusion)
+
+add_executable(arx_test_production_config tests/test_production_config.cpp)
+target_link_libraries(arx_test_production_config PRIVATE arx_engine)
+add_test(NAME arx_test_production_config COMMAND arx_test_production_config)
+
+add_executable(arx_test_camera_source tests/test_camera_source.cpp)
+target_include_directories(arx_test_camera_source PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+add_test(NAME arx_test_camera_source COMMAND arx_test_camera_source)
+
 
 message(STATUS "ARX Platform v${PROJECT_VERSION}")
 message(STATUS "  CUDA:       ${ARX_ENABLE_CUDA}")

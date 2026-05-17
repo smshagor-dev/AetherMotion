@@ -15,6 +15,7 @@ struct RuntimeCliOptions {
     std::filesystem::path session_path;
     std::optional<int> camera_id;
     std::filesystem::path image_path;
+    bool deprecated_fusion_demo_alias{false};
     bool check_models{false};
     bool disable_gesture_classifier{false};
     bool debug_gestures{false};

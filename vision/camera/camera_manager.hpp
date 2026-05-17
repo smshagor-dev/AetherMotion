@@ -10,9 +10,9 @@
 
 #ifdef ARX_HAS_OPENCV
 #include <opencv2/core.hpp>
-#include <opencv2/videoio.hpp>
 #endif
 
+#include "vision/camera/frame_source.hpp"
 #include "vision/landmarks/landmark_types.hpp"
 
 namespace arx::vision::camera {
@@ -39,8 +39,8 @@ public:
 private:
     int id_;
     CameraConfig config_;
-    cv::VideoCapture capture_;
     std::atomic<bool> is_open_{false};
+    std::unique_ptr<CameraFrameSource> source_;
 };
 
 class CameraManager {

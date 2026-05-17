@@ -22,6 +22,50 @@ std::string encode_hand(const vision::HandLandmarks& hand) {
     return out.str();
 }
 
+std::string encode_face(const vision::FaceLandmarks& face) {
+    std::ostringstream out;
+    out << "{\"confidence\":" << face.confidence << ",\"points\":[";
+    for (std::size_t i = 0; i < vision::kFaceLandmarkCount; ++i) {
+        const auto& p = face.points[i];
+        out << "[" << p.x << "," << p.y << "," << p.z << "]";
+        if (i + 1 != vision::kFaceLandmarkCount) {
+            out << ",";
+        }
+    }
+    out << "]}";
+    return out.str();
+}
+
+std::string encode_fusion(const ar::fusion::ARFusionFrame& fusion) {
+    std::ostringstream out;
+    out << "{\"schema_version\":" << fusion.schema_version
+        << ",\"runtime_version\":\"" << fusion.runtime_version
+        << "\",\"provider_name\":\"" << fusion.provider_name
+        << "\",\"config_hash\":\"" << fusion.config_hash
+        << "\",\"gesture_label\":\"" << fusion.gesture_label
+        << "\",\"gesture_confidence\":" << fusion.gesture_confidence
+        << ",\"gesture_event\":\"" << fusion.gesture_event
+        << "\",\"tracking_fade\":" << fusion.telemetry.tracking_fade
+        << ",\"tracker_state\":\"" << fusion.telemetry.tracker_state
+        << "\",\"hud\":{\"visible\":" << (fusion.hud.visible ? "true" : "false")
+        << ",\"opacity\":" << fusion.hud.opacity
+        << ",\"pinch_distance\":" << fusion.hud.pinch_distance
+        << ",\"primary_label\":\"" << fusion.hud.primary_label << "\"}"
+        << ",\"anchors\":[";
+    for (std::size_t i = 0; i < fusion.anchors.size(); ++i) {
+        const auto& anchor = fusion.anchors[i];
+        out << "{\"id\":\"" << anchor.id
+            << "\",\"active\":" << (anchor.active ? "true" : "false")
+            << ",\"confidence\":" << anchor.confidence
+            << ",\"position\":[" << anchor.position.x << "," << anchor.position.y << "," << anchor.position.z << "]}";
+        if (i + 1 != fusion.anchors.size()) {
+            out << ",";
+        }
+    }
+    out << "]}";
+    return out.str();
+}
+
 }  // namespace
 
 SessionRecorder::SessionRecorder(std::filesystem::path session_dir)
@@ -59,7 +103,14 @@ void SessionRecorder::record_frame(const SessionFrame& frame) {
             out_ << ",";
         }
     }
-    out_ << "]}\n";
+    out_ << "]";
+    if (frame.face.has_value()) {
+        out_ << ",\"face\":" << encode_face(*frame.face);
+    }
+    if (frame.fusion.has_value()) {
+        out_ << ",\"fusion\":" << encode_fusion(*frame.fusion);
+    }
+    out_ << "}\n";
 }
 
 void SessionRecorder::end_session() {

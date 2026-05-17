@@ -27,11 +27,15 @@ struct FrameMetadata {
     std::uint64_t frame_id{0};
     std::int64_t capture_us{0};
     std::int64_t process_us{0};
+    std::int64_t capture_ns{0};
+    std::int64_t process_ns{0};
     int camera_id{0};
     int width{0};
     int height{0};
     double fps{0.0};
     std::uint32_t dropped_frames{0};
+    std::string pixel_format{"bgr24"};
+    std::string source_id{"camera0"};
 };
 
 struct HandLandmarks {

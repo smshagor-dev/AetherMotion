@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include "ar/fusion/fusion_types.hpp"
 #include "vision/gesture_engine/gesture_types.hpp"
 #include "vision/landmarks/landmark_types.hpp"
 
@@ -19,6 +20,7 @@ struct SessionFrame {
     std::optional<vision::FaceLandmarks> face;
     vision::GestureResult gesture;
     std::string profiler_snapshot;
+    std::optional<ar::fusion::ARFusionFrame> fusion;
 };
 
 }  // namespace arx::replay

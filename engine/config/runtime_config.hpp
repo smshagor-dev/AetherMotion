@@ -3,14 +3,19 @@
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#include <vector>
 
 namespace arx::engine::config {
 
 struct CameraRuntimeConfig {
     int id{0};
+    std::string source{"0"};
     int width{1280};
     int height{720};
     double fps{60.0};
+    int open_timeout_ms{3000};
+    int reconnect_delay_ms{1000};
+    bool allow_reconnect{true};
 };
 
 struct RecordingConfig {
@@ -42,6 +47,33 @@ struct TrackingConfig {
     std::filesystem::path image_path;
 };
 
+struct FusionConfig {
+    std::string provider_type{"mediapipe-production"};
+    bool overlay_enabled{true};
+    bool hand_skeleton_enabled{true};
+    bool face_overlay_enabled{true};
+    bool binary_face_overlay_enabled{true};
+    float binary_face_overlay_opacity{0.32f};
+    float binary_face_overlay_density{0.45f};
+    float binary_face_overlay_speed{0.55f};
+    float hud_animation_gain{0.28f};
+    float jitter_threshold{0.02f};
+    std::filesystem::path replay_output_path{"sessions/fusion_sample.jsonl"};
+    double max_latency_ms{33.0};
+    std::string smoothing_profile{"one_euro"};
+    std::string overlay_profile{"graphical_fusion"};
+    std::string replay_policy{"record_on_live"};
+    std::string telemetry_policy{"jsonl+timeline"};
+    std::string failover_policy{"exit_on_fatal"};
+};
+
+struct ConfigValidationResult {
+    std::vector<std::string> errors;
+
+    [[nodiscard]] bool valid() const noexcept { return errors.empty(); }
+    [[nodiscard]] std::string summary() const;
+};
+
 struct RuntimeConfig {
     std::string engine_name{"ARX Platform v3.0"};
     std::string subtitle{"C++-First Real-Time Gesture Intelligence and Spatial AR Engine"};
@@ -56,8 +88,11 @@ struct RuntimeConfig {
     CameraRuntimeConfig camera{};
     RecordingConfig recording{};
     TrackingConfig tracking{};
+    FusionConfig fusion{};
 };
 
 RuntimeConfig load_runtime_config(const std::string& path);
+ConfigValidationResult validate_runtime_config(const RuntimeConfig& cfg);
+std::string runtime_config_hash(const RuntimeConfig& cfg);
 
 }  // namespace arx::engine::config

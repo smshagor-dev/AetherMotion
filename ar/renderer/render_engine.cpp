@@ -22,6 +22,9 @@ const cv::Scalar kOrange{0, 165, 255};
 const cv::Scalar kWhite{255, 255, 255};
 const cv::Scalar kDimWhite{180, 180, 180};
 const cv::Scalar kAmber{0, 215, 255};
+const cv::Scalar kHudBlue{255, 210, 70};
+const cv::Scalar kHudGreen{110, 255, 170};
+const cv::Scalar kMatrixGreen{80, 220, 120};
 }
 
 void RenderEngine::init(int width, int height) {
@@ -160,6 +163,86 @@ void RenderEngine::draw_hud_overlay(cv::Mat& frame,
     char buffer[64];
     std::snprintf(buffer, sizeof(buffer), "FRAME #%06llu", static_cast<unsigned long long>(meta.frame_id));
     cv::putText(frame, buffer, {10, frame.rows - 10}, cv::FONT_HERSHEY_PLAIN, 0.9, kDimWhite, 1, cv::LINE_AA);
+}
+
+void RenderEngine::draw_fusion_overlay(cv::Mat& frame, const ar::fusion::ARFusionFrame& fusion) {
+    const auto alpha = std::clamp(fusion.telemetry.tracking_fade, 0.0f, 1.0f);
+    if (alpha <= 0.0f) {
+        return;
+    }
+
+    if (fusion.face_binary.active) {
+        cv::Mat layer = frame.clone();
+        const int x0 = std::clamp(static_cast<int>(fusion.face_binary.min_x * frame.cols), 0, frame.cols - 1);
+        const int y0 = std::clamp(static_cast<int>(fusion.face_binary.min_y * frame.rows), 0, frame.rows - 1);
+        const int x1 = std::clamp(static_cast<int>(fusion.face_binary.max_x * frame.cols), x0 + 1, frame.cols);
+        const int y1 = std::clamp(static_cast<int>(fusion.face_binary.max_y * frame.rows), y0 + 1, frame.rows);
+        const int columns = std::max(4, static_cast<int>(fusion.face_binary.density * 18.0f));
+        const double t = static_cast<double>(cv::getTickCount()) / cv::getTickFrequency();
+        for (int c = 0; c < columns; ++c) {
+            const int x = x0 + (c * std::max(1, (x1 - x0) / columns));
+            const int offset = static_cast<int>(std::fmod((t * 90.0 * fusion.face_binary.speed) + c * 17.0, std::max(1, y1 - y0)));
+            for (int y = y0; y < y1; y += 18) {
+                const char digit = ((y + offset) / 18 + c) % 2 == 0 ? '1' : '0';
+                cv::putText(layer, std::string(1, digit), {x, y0 + ((y - y0 + offset) % std::max(1, y1 - y0))},
+                    cv::FONT_HERSHEY_PLAIN, 0.8, kMatrixGreen, 1, cv::LINE_AA);
+            }
+        }
+        cv::addWeighted(layer, std::clamp(fusion.face_binary.opacity, 0.0f, 1.0f), frame,
+            1.0 - std::clamp(fusion.face_binary.opacity, 0.0f, 1.0f), 0.0, frame);
+    }
+
+    for (const auto& hand : fusion.smoothed_hands) {
+        const auto color = hand.is_left ? kCyan : kMagenta;
+        auto lm_px = [&](int i) {
+            return cv::Point{
+                static_cast<int>(hand.points[i].x * frame.cols),
+                static_cast<int>(hand.points[i].y * frame.rows)
+            };
+        };
+        if (fusion.hud.pinch_ring_visible) {
+            const auto thumb = lm_px(4);
+            const auto index = lm_px(8);
+            cv::line(frame, thumb, index, kHudBlue, 1, cv::LINE_AA);
+            const auto mid = cv::Point{(thumb.x + index.x) / 2, (thumb.y + index.y) / 2};
+            const int ring_radius = std::max(8, static_cast<int>(fusion.hud.pinch_distance * frame.cols * 0.15f));
+            cv::circle(frame, mid, ring_radius, kHudBlue, 2, cv::LINE_AA);
+        }
+        if (fusion.hud.triangular_frame_visible) {
+            const auto a = lm_px(4);
+            const auto b = lm_px(8);
+            const auto c = lm_px(12);
+            cv::line(frame, a, b, color, 2, cv::LINE_AA);
+            cv::line(frame, b, c, color, 2, cv::LINE_AA);
+            cv::line(frame, c, a, color, 2, cv::LINE_AA);
+        }
+    }
+
+    if (fusion.hud.spatial_cursor_visible) {
+        const cv::Point cursor{
+            static_cast<int>(fusion.hud.cursor.x * frame.cols),
+            static_cast<int>(fusion.hud.cursor.y * frame.rows)
+        };
+        cv::circle(frame, cursor, 12, kHudGreen, 1, cv::LINE_AA);
+        cv::circle(frame, cursor, 20, kHudGreen, 1, cv::LINE_AA);
+        cv::line(frame, {cursor.x - 16, cursor.y}, {cursor.x + 16, cursor.y}, kHudGreen, 1, cv::LINE_AA);
+        cv::line(frame, {cursor.x, cursor.y - 16}, {cursor.x, cursor.y + 16}, kHudGreen, 1, cv::LINE_AA);
+    }
+
+    if (fusion.hud.zoom_guide_visible && fusion.smoothed_hands.size() > 1) {
+        const auto& left = fusion.smoothed_hands.front().points[0];
+        const auto& right = fusion.smoothed_hands.back().points[0];
+        cv::Point a{static_cast<int>(left.x * frame.cols), static_cast<int>(left.y * frame.rows)};
+        cv::Point b{static_cast<int>(right.x * frame.cols), static_cast<int>(right.y * frame.rows)};
+        cv::line(frame, a, b, kOrange, 2, cv::LINE_AA);
+        cv::circle(frame, a, 10, kOrange, 1, cv::LINE_AA);
+        cv::circle(frame, b, 10, kOrange, 1, cv::LINE_AA);
+    }
+
+    char gesture[160];
+    std::snprintf(gesture, sizeof(gesture), "%s conf=%.2f fade=%.2f",
+        fusion.gesture_label.c_str(), fusion.gesture_confidence, fusion.telemetry.tracking_fade);
+    cv::putText(frame, gesture, {10, 108}, cv::FONT_HERSHEY_DUPLEX, 0.7, kHudBlue, 1, cv::LINE_AA);
 }
 
 }  // namespace arx::ar::renderer

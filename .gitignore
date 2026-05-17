@@ -12,6 +12,8 @@ venv/
 env/
 
 build/
+build-release/
+build-release-mp/
 dist/
 sessions/*.log
 mediapipe/

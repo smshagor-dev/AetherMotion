@@ -11,46 +11,45 @@ CameraDevice::CameraDevice(int camera_id, CameraConfig config)
     : id_(camera_id), config_(config) {}
 
 bool CameraDevice::open() {
-    int backend = cv::CAP_ANY;
-#ifdef _WIN32
-    backend = cv::CAP_DSHOW;
-#elif defined(__linux__)
-    backend = cv::CAP_V4L2;
-#endif
-    capture_.open(id_, backend);
-    if (!capture_.isOpened()) {
-        return false;
-    }
-    capture_.set(cv::CAP_PROP_FRAME_WIDTH, config_.width);
-    capture_.set(cv::CAP_PROP_FRAME_HEIGHT, config_.height);
-    capture_.set(cv::CAP_PROP_FPS, config_.fps);
-    capture_.set(cv::CAP_PROP_BUFFERSIZE, 2);
-    capture_.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('M', 'J', 'P', 'G'));
-    is_open_.store(true);
-    return true;
+    engine::config::CameraRuntimeConfig runtime_config;
+    runtime_config.id = id_;
+    runtime_config.source = std::to_string(id_);
+    runtime_config.width = config_.width;
+    runtime_config.height = config_.height;
+    runtime_config.fps = config_.fps;
+    source_ = std::make_unique<OpenCVVideoCaptureSource>(id_, runtime_config);
+    const bool ok = source_->open();
+    is_open_.store(ok);
+    return ok;
 }
 
 void CameraDevice::close() {
     is_open_.store(false);
-    if (capture_.isOpened()) {
-        capture_.release();
+    if (source_ != nullptr) {
+        source_->close();
     }
 }
 
 bool CameraDevice::grab_frame(cv::Mat& out, FrameMetadata& meta) {
-    if (!capture_.grab()) {
+    if (source_ == nullptr) {
+        return false;
+    }
+    CameraFrame frame;
+    if (!source_->read(frame)) {
         ++meta.dropped_frames;
         return false;
     }
-    capture_.retrieve(out);
-    if (out.empty()) {
-        return false;
-    }
-
+    out = frame.bgr;
     meta.camera_id = id_;
-    meta.width = out.cols;
-    meta.height = out.rows;
-    meta.capture_us = now_us();
+    meta.width = frame.width;
+    meta.height = frame.height;
+    meta.capture_ns = frame.timestamp_ns;
+    meta.process_ns = frame.timestamp_ns;
+    meta.capture_us = frame.timestamp_ns / 1000;
+    meta.process_us = frame.timestamp_ns / 1000;
+    meta.pixel_format = "bgr24";
+    meta.source_id = frame.source_id;
+    meta.dropped_frames = static_cast<std::uint32_t>(frame.dropped_frames);
     return true;
 }
 

@@ -1,0 +1,54 @@
+{
+  "engine_name": "ARX Platform v3.0 Graphical Fusion",
+  "subtitle": "Production Graphical Fusion Runtime",
+  "target_fps": 60,
+  "fixed_timestep_hz": 120,
+  "latency_budget_ms": 20.0,
+  "enable_profiler": true,
+  "headless": false,
+  "camera": {
+    "id": 0,
+    "source": "0",
+    "width": 1280,
+    "height": 720,
+    "fps": 60,
+    "open_timeout_ms": 3000,
+    "reconnect_delay_ms": 1000,
+    "allow_reconnect": true
+  },
+  "recording": {
+    "session_dir": "sessions",
+    "record_frames": true,
+    "record_gestures": true
+  },
+  "tracking": {
+    "enable_hands": true,
+    "enable_face": true,
+    "enable_world_landmarks": true,
+    "models_dir": "models",
+    "hand_model_path": "models/hand_landmarker.task",
+    "face_model_path": "models/face_landmarker.task",
+    "max_hands": 2,
+    "max_faces": 1,
+    "gesture_threshold": 0.5
+  },
+  "fusion": {
+    "provider_type": "mediapipe-production",
+    "overlay_enabled": true,
+    "hand_skeleton_enabled": true,
+    "face_overlay_enabled": true,
+    "binary_face_overlay_enabled": true,
+    "binary_face_overlay_opacity": 0.34,
+    "binary_face_overlay_density": 0.48,
+    "binary_face_overlay_speed": 0.60,
+    "hud_animation_gain": 0.28,
+    "jitter_threshold": 0.02,
+    "replay_output_path": "sessions/fusion_sample.jsonl",
+    "max_latency_ms": 33.0,
+    "smoothing_profile": "one_euro",
+    "overlay_profile": "graphical_fusion",
+    "replay_policy": "record_on_live",
+    "telemetry_policy": "jsonl+timeline",
+    "failover_policy": "exit_on_fatal"
+  }
+}

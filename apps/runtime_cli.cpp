@@ -17,6 +17,15 @@ RuntimeCliOptions parse_runtime_cli(int argc, char** argv) {
                 options.mode = engine::RuntimeMode::kReplay;
             } else if (value == "tracker-smoke") {
                 options.mode = engine::RuntimeMode::kTrackerSmoke;
+            } else if (value == "graphical-fusion" || value == "fusion-live") {
+                options.mode = engine::RuntimeMode::kGraphicalFusion;
+            } else if (value == "fusion-demo") {
+                options.mode = engine::RuntimeMode::kGraphicalFusion;
+                options.deprecated_fusion_demo_alias = true;
+            } else if (value == "fusion-replay") {
+                options.mode = engine::RuntimeMode::kFusionReplay;
+            } else if (value == "validate-replay") {
+                options.mode = engine::RuntimeMode::kValidateReplay;
             } else {
                 options.mode = engine::RuntimeMode::kLive;
             }
@@ -51,6 +60,12 @@ std::string runtime_mode_name(engine::RuntimeMode mode) {
         return "replay";
     case engine::RuntimeMode::kTrackerSmoke:
         return "tracker-smoke";
+    case engine::RuntimeMode::kGraphicalFusion:
+        return "graphical-fusion";
+    case engine::RuntimeMode::kFusionReplay:
+        return "fusion-replay";
+    case engine::RuntimeMode::kValidateReplay:
+        return "validate-replay";
     default:
         return "live";
     }
