@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-zeromq/zmq4"
 	"go.uber.org/zap"
 )
 
@@ -99,29 +100,46 @@ func NewZMQSubscriber(
 }
 
 func (z *ZMQSubscriber) Run(ctx context.Context) {
-	// NOTE: In production, initialise zmq4.NewSub socket here.
-	// For portability in this reference implementation we simulate
-	// the receive loop with a placeholder that logs and waits.
-	//
-	// Real implementation:
-	//   sock, _ := zmq4.NewSocket(zmq4.SUB)
-	//   sock.Connect(z.endpoint)
-	//   sock.SetSubscribe("")
-	//   for { msg, err := sock.RecvBytes(0); ... }
-
 	z.log.Infof("[ZMQ] Subscriber connecting to %s", z.endpoint)
 
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
+	sock := zmq4.NewSub(ctx)
+	if err := sock.SetOption(zmq4.OptionSubscribe, ""); err != nil {
+		z.log.Errorf("[ZMQ] Subscribe option failed for %s: %v", z.endpoint, err)
+		return
+	}
+	if err := sock.Dial(z.endpoint); err != nil {
+		z.log.Errorf("[ZMQ] Dial failed for %s: %v", z.endpoint, err)
+		return
+	}
+	defer func() {
+		if err := sock.Close(); err != nil {
+			z.log.Warnf("[ZMQ] Close failed for %s: %v", z.endpoint, err)
+		}
+	}()
+
+	go func() {
+		<-ctx.Done()
+		_ = sock.Close()
+	}()
 
 	for {
-		select {
-		case <-ctx.Done():
-			z.log.Infof("[ZMQ] Subscriber %s stopped", z.endpoint)
-			return
-		case <-ticker.C:
-			// Real: receive from socket and call z.ingest(msg)
+		msg, err := sock.Recv()
+		if err != nil {
+			select {
+			case <-ctx.Done():
+				z.log.Infof("[ZMQ] Subscriber %s stopped", z.endpoint)
+				return
+			default:
+				z.log.Warnf("[ZMQ] Receive failed from %s: %v", z.endpoint, err)
+				time.Sleep(100 * time.Millisecond)
+				continue
+			}
 		}
+		raw := msg.Bytes()
+		if len(raw) == 0 {
+			continue
+		}
+		z.ingest(raw)
 	}
 }
 

@@ -18,6 +18,7 @@ Run:
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import sys
 import time
@@ -244,19 +245,24 @@ class SparklineWidget(QWidget):
 
 class ARXDashboard(QMainWindow):
 
-    def __init__(self, ws_url: str) -> None:
+    def __init__(self, ws_url: str, use_camera: bool = True) -> None:
         super().__init__()
         self.setWindowTitle("ARX Vision Platform  |  Operator Dashboard")
         self.resize(1600, 900)
         self._apply_global_style()
 
         self._ws_url    = ws_url
-        self._cap       = cv2.VideoCapture(0)
+        self._use_camera = use_camera
+        self._cap       = cv2.VideoCapture(0, cv2.CAP_DSHOW) if use_camera else None
         self._last_data: dict = {}
         self._event_log: deque[str] = deque(maxlen=200)
+        self._rendered_frames = 0
 
         self._build_ui()
-        self._start_camera_timer()
+        if self._use_camera:
+            self._start_camera_timer()
+        else:
+            self._cam_label.setText("Waiting for AI layer frame stream...")
         self._start_ws()
 
     # ── UI construction ───────────────────────────────────────────────────
@@ -380,7 +386,7 @@ class ARXDashboard(QMainWindow):
         self._cam_timer.start(33)  # ~30 fps
 
     def _update_camera(self) -> None:
-        if not self._cap.isOpened():
+        if self._cap is None or not self._cap.isOpened():
             return
         ret, frame = self._cap.read()
         if not ret:
@@ -412,10 +418,19 @@ class ARXDashboard(QMainWindow):
         if ptype == "frame_telemetry":
             fps  = data.get("fps", 0)
             self._fps_graph.push(fps)
-            hands = data.get("num_hands", 0)
+            hands = data.get("hands_count", data.get("num_hands", 0))
             self._stat_hands.setText(f"Hands: {hands}")
             self._stat_conf.setText(f"Confidence: {data.get('confidence', 0):.2f}")
             self._stat_source.setText(f"Source: {data.get('source', '—')}")
+            gesture = str(data.get("gesture", "—")).upper().replace("_", " ")
+            self._gesture_label.setText(f"GESTURE: {gesture}")
+            print(
+                f"[Dashboard] frame received hands={hands} "
+                f"gesture={data.get('gesture', 'none')} source={data.get('source', '—')}"
+                ,
+                flush=True,
+            )
+            self._render_ws_frame(data)
 
         elif ptype == "gesture_event":
             gesture = data.get("gesture", "—").upper().replace("_", " ")
@@ -431,6 +446,34 @@ class ARXDashboard(QMainWindow):
         # Latency
         if "latency_ms" in data.get("perf", {}):
             self._lat_graph.push(data["perf"]["latency_ms"])
+
+    def _render_ws_frame(self, data: dict) -> None:
+        encoded = data.get("frame_jpeg_base64")
+        if not encoded:
+            return
+
+        try:
+            raw = base64.b64decode(encoded)
+        except Exception:
+            return
+
+        qimg = QImage.fromData(raw, "JPG")
+        if qimg.isNull():
+            return
+
+        pix = QPixmap.fromImage(qimg)
+        label_size = self._cam_label.size()
+        self._cam_label.setPixmap(
+            pix.scaled(label_size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        )
+        self._landmark_widget.setGeometry(self._cam_label.rect())
+        self._rendered_frames += 1
+        print(
+            f"[Dashboard] frame rendered #{self._rendered_frames} "
+            f"size={qimg.width()}x{qimg.height()}"
+            ,
+            flush=True,
+        )
 
     # ── Helpers ───────────────────────────────────────────────────────────
 
@@ -480,7 +523,8 @@ class ARXDashboard(QMainWindow):
         """)
 
     def closeEvent(self, event) -> None:
-        self._cap.release()
+        if self._cap is not None:
+            self._cap.release()
         event.accept()
 
 
@@ -489,10 +533,11 @@ class ARXDashboard(QMainWindow):
 def main() -> None:
     parser = argparse.ArgumentParser(description="ARX Dashboard")
     parser.add_argument("--ws", default="ws://localhost:8080/ws")
+    parser.add_argument("--no-camera", action="store_true")
     args = parser.parse_args()
 
     app = QApplication(sys.argv)
-    win = ARXDashboard(args.ws)
+    win = ARXDashboard(args.ws, use_camera=not args.no_camera)
     win.show()
     sys.exit(app.exec())
 

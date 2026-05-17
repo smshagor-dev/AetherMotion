@@ -94,7 +94,7 @@ public:
                     output.handedness_scores.reserve(detected.handedness.size());
                     for (std::size_t hand_index = 0; hand_index < detected.hand_landmarks.size(); ++hand_index) {
                         HandLandmarks hand;
-                        const auto& landmarks = detected.hand_landmarks[hand_index];
+                        const auto& landmarks = detected.hand_landmarks[hand_index].landmarks;
                         for (std::size_t point_index = 0;
                              point_index < std::min<std::size_t>(landmarks.size(), kHandLandmarkCount);
                              ++point_index) {
@@ -104,10 +104,11 @@ public:
                                 landmarks[point_index].z
                             };
                         }
-                        if (hand_index < detected.handedness.size() && !detected.handedness[hand_index].classifications.empty()) {
-                            const auto& classification = detected.handedness[hand_index].classifications.front();
+                        if (hand_index < detected.handedness.size() && !detected.handedness[hand_index].categories.empty()) {
+                            const auto& classification = detected.handedness[hand_index].categories.front();
                             hand.confidence = classification.score;
-                            hand.is_left = classification.category_name == "Left";
+                            hand.is_left = classification.category_name.has_value() &&
+                                classification.category_name.value() == "Left";
                             output.handedness_scores.push_back(classification.score);
                         }
                         output.hands.push_back(hand);
@@ -115,9 +116,13 @@ public:
                     for (const auto& world : detected.hand_world_landmarks) {
                         std::array<Point3f, kHandLandmarkCount> points{};
                         for (std::size_t point_index = 0;
-                             point_index < std::min<std::size_t>(world.size(), kHandLandmarkCount);
+                             point_index < std::min<std::size_t>(world.landmarks.size(), kHandLandmarkCount);
                              ++point_index) {
-                            points[point_index] = {world[point_index].x, world[point_index].y, world[point_index].z};
+                            points[point_index] = {
+                                world.landmarks[point_index].x,
+                                world.landmarks[point_index].y,
+                                world.landmarks[point_index].z
+                            };
                         }
                         output.world_landmarks.push_back(points);
                     }

@@ -91,10 +91,11 @@ public:
                     output.ok = true;
                     if (!detected.face_landmarks.empty()) {
                         FaceLandmarks face;
+                        const auto& landmarks = detected.face_landmarks.front().landmarks;
                         for (std::size_t point_index = 0;
-                             point_index < std::min<std::size_t>(detected.face_landmarks.front().size(), kFaceLandmarkCount);
+                             point_index < std::min<std::size_t>(landmarks.size(), kFaceLandmarkCount);
                              ++point_index) {
-                            const auto& p = detected.face_landmarks.front()[point_index];
+                            const auto& p = landmarks[point_index];
                             face.points[point_index] = {p.x, p.y, p.z};
                         }
                         face.confidence = 1.0f;

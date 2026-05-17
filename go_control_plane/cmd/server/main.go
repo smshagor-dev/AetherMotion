@@ -50,9 +50,11 @@ func main() {
 
 	go wsHub.Run()
 	telemetryBus.Subscribe(func(pkt telemetry.Packet) {
+		sugar.Infof("[Go] frame forwarded type=%s source=%s", pkt.Type, pkt.Source)
 		wsHub.Broadcast(pkt.Raw)
 	})
 	gestureBus.Subscribe(func(pkt telemetry.Packet) {
+		sugar.Infof("[Go] frame forwarded type=%s source=%s", pkt.Type, pkt.Source)
 		wsHub.Broadcast(pkt.Raw)
 	})
 

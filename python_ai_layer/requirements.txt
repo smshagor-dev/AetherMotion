@@ -1,9 +1,10 @@
 # ─── ARX Platform – Python dependencies ─────────────────────────────────────
-# Python 3.12+  |  pip install -r requirements.txt
+# Recommended interpreter: Python 3.11 - 3.13
+# Python 3.14 currently does not have a supported MediaPipe wheel.
 
 # ── Computer Vision & AI ────────────────────────────────────────────────────
 opencv-python>=4.9.0
-mediapipe>=0.10.14
+mediapipe>=0.10.14; python_version < "3.14"
 numpy>=1.26.0
 
 # ── GUI ─────────────────────────────────────────────────────────────────────

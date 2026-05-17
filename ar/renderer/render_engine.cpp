@@ -15,13 +15,13 @@ const std::vector<std::pair<int, int>> kHandConnections = {
     {5,9},{9,10},{10,11},{11,12},{9,13},{13,14},{14,15},{15,16},
     {13,17},{17,18},{18,19},{19,20},{0,17}
 };
-constexpr cv::Scalar kCyan{255, 255, 0};
-constexpr cv::Scalar kMagenta{255, 0, 255};
-constexpr cv::Scalar kGreen{0, 255, 128};
-constexpr cv::Scalar kOrange{0, 165, 255};
-constexpr cv::Scalar kWhite{255, 255, 255};
-constexpr cv::Scalar kDimWhite{180, 180, 180};
-constexpr cv::Scalar kAmber{0, 215, 255};
+const cv::Scalar kCyan{255, 255, 0};
+const cv::Scalar kMagenta{255, 0, 255};
+const cv::Scalar kGreen{0, 255, 128};
+const cv::Scalar kOrange{0, 165, 255};
+const cv::Scalar kWhite{255, 255, 255};
+const cv::Scalar kDimWhite{180, 180, 180};
+const cv::Scalar kAmber{0, 215, 255};
 }
 
 void RenderEngine::init(int width, int height) {

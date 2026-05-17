@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import json
 import os
 import shutil
 import signal
@@ -89,6 +90,7 @@ def main() -> int:
         install_python_requirements()
 
     warn_if_python_version_is_not_ideal(args.skip_ai)
+    preflight_checks(args)
     ensure_tool("go", "Go is required to run the control plane.")
 
     processes: list[tuple[str, subprocess.Popen[str]]] = []
@@ -118,7 +120,10 @@ def main() -> int:
 
         if not args.skip_dashboard:
             try:
-                processes.append(("python_gui_dashboard", start_dashboard(args.ws_url)))
+                processes.append((
+                    "python_gui_dashboard",
+                    start_dashboard(args.ws_url, use_camera=args.skip_ai),
+                ))
                 active_services.append("python_gui_dashboard")
             except RuntimeError as exc:
                 print(f"[ARX] Warning: {exc}")
@@ -166,6 +171,42 @@ def warn_if_python_version_is_not_ideal(skip_ai: bool) -> None:
             print("[ARX] The AI layer may fail until you use Python 3.11-3.13.")
 
 
+def preflight_checks(args: argparse.Namespace) -> None:
+    if not args.skip_ai:
+        ensure_ai_runtime_supported()
+        require_python_modules(
+            {
+                "cv2": "opencv-python",
+                "numpy": "numpy",
+                "zmq": "pyzmq",
+                "mediapipe": "mediapipe",
+            },
+            service_name="python_ai_layer",
+            cwd=AI_DIR,
+        )
+
+    if not args.skip_dashboard:
+        require_python_modules(
+            {
+                "cv2": "opencv-python",
+                "numpy": "numpy",
+                "PySide6": "PySide6",
+            },
+            service_name="python_gui_dashboard",
+            cwd=DASHBOARD_DIR,
+        )
+
+
+def ensure_ai_runtime_supported() -> None:
+    version = sys.version_info
+    if version >= (3, 14):
+        raise RuntimeError(
+            "python_ai_layer cannot start on Python 3.14 because MediaPipe wheels are not "
+            "available for this interpreter yet. Use Python 3.11-3.13, then run "
+            "`python run.py --install` again."
+        )
+
+
 def ensure_tool(command: str, message: str) -> None:
     if shutil.which(command) is None:
         raise RuntimeError(message)
@@ -185,15 +226,6 @@ def start_go_control_plane() -> subprocess.Popen[str]:
 
 
 def start_ai_layer(camera: int) -> subprocess.Popen[str]:
-    require_python_modules(
-        {
-            "cv2": "opencv-python",
-            "numpy": "numpy",
-            "zmq": "pyzmq",
-            "mediapipe": "mediapipe",
-        },
-        service_name="python_ai_layer",
-    )
     print("[ARX] Starting Python AI layer in direct webcam mode ...")
     return spawn_process(
         [
@@ -204,28 +236,24 @@ def start_ai_layer(camera: int) -> subprocess.Popen[str]:
             "--no-shm",
             "--zmq-port",
             "5557",
+            "--no-preview",
         ],
         cwd=AI_DIR,
     )
 
 
-def start_dashboard(ws_url: str) -> subprocess.Popen[str]:
-    require_python_modules(
-        {
-            "cv2": "opencv-python",
-            "numpy": "numpy",
-            "PySide6": "PySide6",
-        },
-        service_name="python_gui_dashboard",
-    )
+def start_dashboard(ws_url: str, use_camera: bool) -> subprocess.Popen[str]:
     print(f"[ARX] Starting dashboard against {ws_url} ...")
+    command = [
+        sys.executable,
+        "main_dashboard.py",
+        "--ws",
+        ws_url,
+    ]
+    if not use_camera:
+        command.append("--no-camera")
     return spawn_process(
-        [
-            sys.executable,
-            "main_dashboard.py",
-            "--ws",
-            ws_url,
-        ],
+        command,
         cwd=DASHBOARD_DIR,
     )
 
@@ -264,10 +292,14 @@ def is_healthy(url: str) -> bool:
         return False
 
 
-def require_python_modules(modules: dict[str, str], service_name: str) -> None:
+def require_python_modules(
+    modules: dict[str, str],
+    service_name: str,
+    cwd: Path,
+) -> None:
     missing: list[str] = []
     for module_name, package_name in modules.items():
-        if importlib.util.find_spec(module_name) is None:
+        if not can_import_module(module_name, cwd):
             missing.append(package_name)
 
     if missing:
@@ -276,6 +308,27 @@ def require_python_modules(modules: dict[str, str], service_name: str) -> None:
             f"{service_name} cannot start because these packages are missing: {package_list}. "
             f"Run `python run.py --install` with Python 3.11-3.13."
         )
+
+
+def can_import_module(module_name: str, cwd: Path) -> bool:
+    probe = (
+        "import importlib.util, json; "
+        f"print(json.dumps(importlib.util.find_spec({module_name!r}) is not None))"
+    )
+    completed = subprocess.run(
+        [sys.executable, "-c", probe],
+        cwd=str(cwd),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        return False
+
+    try:
+        return bool(json.loads(completed.stdout.strip() or "false"))
+    except json.JSONDecodeError:
+        return False
 
 
 def print_started_services(service_names: list[str]) -> None:

@@ -12,6 +12,8 @@ option(ARX_ENABLE_MEDIAPIPE "Enable MediaPipe Tasks C++ hand/face tracking" OFF)
 set(ARX_MEDIAPIPE_INCLUDE_DIR "" CACHE PATH "MediaPipe include directory")
 set(ARX_MEDIAPIPE_LIBRARIES "" CACHE STRING "Semicolon-separated MediaPipe libraries")
 set(ARX_MEDIAPIPE_MODELS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/models" CACHE PATH "Directory containing MediaPipe .task model assets")
+set(ARX_MEDIAPIPE_BAZEL_EXTERNAL_DIR "")
+set(ARX_MEDIAPIPE_BAZEL_BIN_DIR "")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -94,12 +96,22 @@ if(ARX_ENABLE_MEDIAPIPE)
             message(FATAL_ERROR "ARX_ENABLE_MEDIAPIPE=ON but a configured MediaPipe library does not exist: ${_arx_mp_lib}")
         endif()
     endforeach()
+    set(ARX_MEDIAPIPE_BAZEL_EXTERNAL_DIR "${ARX_MEDIAPIPE_INCLUDE_DIR}/bazel-mediapipe/external")
+    set(ARX_MEDIAPIPE_BAZEL_BIN_DIR "${ARX_MEDIAPIPE_INCLUDE_DIR}/bazel-mediapipe/bazel-out/x64_windows-opt/bin")
+    if(NOT EXISTS "${ARX_MEDIAPIPE_BAZEL_EXTERNAL_DIR}")
+        message(FATAL_ERROR "ARX_ENABLE_MEDIAPIPE=ON but Bazel external headers were not found: ${ARX_MEDIAPIPE_BAZEL_EXTERNAL_DIR}")
+    endif()
+    if(NOT EXISTS "${ARX_MEDIAPIPE_BAZEL_BIN_DIR}")
+        message(FATAL_ERROR "ARX_ENABLE_MEDIAPIPE=ON but Bazel generated headers were not found: ${ARX_MEDIAPIPE_BAZEL_BIN_DIR}")
+    endif()
     set(ARX_MEDIAPIPE_READY ON)
 endif()
 if(ARX_ENABLE_MEDIAPIPE AND NOT OpenCV_FOUND)
     message(FATAL_ERROR "ARX_ENABLE_MEDIAPIPE=ON requires OpenCV (core,imgproc,highgui,videoio) for the current native tracker pipeline.")
 endif()
 if(OpenCV_FOUND)
+    target_include_directories(arx_engine PUBLIC ${OpenCV_INCLUDE_DIRS})
+    target_link_libraries(arx_engine PUBLIC ${OpenCV_LIBS})
     target_compile_definitions(arx_engine PUBLIC ARX_HAS_OPENCV=1)
     if(ARX_MEDIAPIPE_READY)
         target_compile_definitions(arx_engine PUBLIC ARX_HAS_MEDIAPIPE=1)
@@ -111,10 +123,40 @@ if(OpenCV_FOUND)
         vision/tracking/mediapipe_face_tracker.cpp
         ar/renderer/render_engine.cpp
     )
-    target_include_directories(arx_runtime_vision PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+    target_include_directories(arx_runtime_vision PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${OpenCV_INCLUDE_DIRS})
     if(ARX_MEDIAPIPE_READY)
-        target_include_directories(arx_runtime_vision PUBLIC ${ARX_MEDIAPIPE_INCLUDE_DIR})
-        target_compile_definitions(arx_runtime_vision PUBLIC ARX_HAS_MEDIAPIPE=1)
+        file(GLOB _arx_mediapipe_external_include_dirs LIST_DIRECTORIES true "${ARX_MEDIAPIPE_BAZEL_EXTERNAL_DIR}/*")
+        file(GLOB _arx_mediapipe_external_src_include_dirs LIST_DIRECTORIES true "${ARX_MEDIAPIPE_BAZEL_EXTERNAL_DIR}/*/src")
+        file(GLOB _arx_mediapipe_external_nested_include_dirs LIST_DIRECTORIES true "${ARX_MEDIAPIPE_BAZEL_EXTERNAL_DIR}/*/include")
+        file(GLOB _arx_mediapipe_generated_external_include_dirs LIST_DIRECTORIES true "${ARX_MEDIAPIPE_BAZEL_BIN_DIR}/external/*")
+        file(GLOB _arx_mediapipe_generated_external_src_include_dirs LIST_DIRECTORIES true "${ARX_MEDIAPIPE_BAZEL_BIN_DIR}/external/*/src")
+        file(GLOB _arx_mediapipe_generated_external_nested_include_dirs LIST_DIRECTORIES true "${ARX_MEDIAPIPE_BAZEL_BIN_DIR}/external/*/include")
+        file(GLOB _arx_mediapipe_generated_external_internal_include_dirs LIST_DIRECTORIES true "${ARX_MEDIAPIPE_BAZEL_BIN_DIR}/external/*/glog_internal")
+        file(GLOB _arx_mediapipe_generated_virtual_include_dirs LIST_DIRECTORIES true "${ARX_MEDIAPIPE_BAZEL_BIN_DIR}/external/*/_virtual_includes/*")
+        target_include_directories(arx_runtime_vision PUBLIC
+            ${ARX_MEDIAPIPE_INCLUDE_DIR}
+            ${ARX_MEDIAPIPE_BAZEL_BIN_DIR}
+            ${_arx_mediapipe_external_include_dirs}
+            ${_arx_mediapipe_external_src_include_dirs}
+            ${_arx_mediapipe_external_nested_include_dirs}
+            ${_arx_mediapipe_generated_external_include_dirs}
+            ${_arx_mediapipe_generated_external_src_include_dirs}
+            ${_arx_mediapipe_generated_external_nested_include_dirs}
+            ${_arx_mediapipe_generated_external_internal_include_dirs}
+            ${_arx_mediapipe_generated_virtual_include_dirs}
+        )
+        target_compile_definitions(arx_runtime_vision PUBLIC
+            ARX_HAS_MEDIAPIPE=1
+            GLOG_EXPORT=
+            GLOG_DEPRECATED=
+            GLOG_NO_ABBREVIATED_SEVERITIES
+            GLOG_BAZEL_BUILD
+            GOOGLE_NAMESPACE=google
+            HAVE_SNPRINTF
+            HAVE_LIB_GFLAGS
+            _USE_MATH_DEFINES
+            MEDIAPIPE_DISABLE_GPU=1
+        )
         target_link_libraries(arx_runtime_vision PUBLIC ${ARX_MEDIAPIPE_LIBRARIES})
     endif()
     target_link_libraries(arx_runtime_vision PUBLIC arx_engine arx_vision arx_ar ${OpenCV_LIBS})

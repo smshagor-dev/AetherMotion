@@ -1,5 +1,7 @@
 # Windows Native Tracking Setup
 
+For the Windows MediaPipe Tasks C++ build itself, see [MEDIAPIPE_WINDOWS_BUILD.md](./MEDIAPIPE_WINDOWS_BUILD.md). This document focuses on wiring the resulting native artifacts into ARX Platform.
+
 ## Requirements
 
 - Windows 10/11
@@ -8,6 +10,18 @@
 - OpenCV with `core`, `imgproc`, `highgui`, `videoio`
 - MediaPipe Tasks Vision C++ headers and libraries
 - Qt6 is optional for dashboard builds
+
+## MediaPipe Build Dependency
+
+Before configuring ARX with `ARX_ENABLE_MEDIAPIPE=ON`, make sure the native MediaPipe build is working on Windows:
+
+- Bazelisk pinned to Bazel `7.4.1`
+- JDK `17`
+- `HERMETIC_PYTHON_VERSION=3.12`
+- `BAZEL_SH` pointing at Git Bash
+- OpenCV 3.4.10 extracted to `C:\opencv\build`
+
+The exact setup and troubleshooting steps are documented in [MEDIAPIPE_WINDOWS_BUILD.md](./MEDIAPIPE_WINDOWS_BUILD.md).
 
 ## Model Files
 
