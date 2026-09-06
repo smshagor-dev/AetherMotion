@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <filesystem>
 #include <string>
 
@@ -30,6 +31,9 @@ public:
     bool initialize();
     int run();
     void request_shutdown();
+    void request_pause(bool paused);
+    [[nodiscard]] bool paused() const noexcept;
+    [[nodiscard]] bool shutdown_requested() const noexcept;
     void shutdown();
 
 private:
@@ -78,7 +82,9 @@ private:
     std::optional<vision::landmarks::LandmarkProviderOutput> last_tracking_result_;
     std::filesystem::path session_path_;
     bool initialized_{false};
-    bool shutdown_requested_{false};
+    std::atomic_bool shutdown_requested_{false};
+    std::atomic_bool pause_requested_{false};
+    bool pause_state_reported_{false};
     std::uint64_t live_frame_id_{0};
 };
 
