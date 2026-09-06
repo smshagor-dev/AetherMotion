@@ -2,9 +2,12 @@ package main
 
 import (
 	"context"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -24,9 +27,9 @@ func main() {
 
 	sugar.Info("ARX Control Plane v2.0 starting")
 
-	cppEndpoint := getenvDefault("ARX_CPP_ZMQ", "tcp://localhost:5556")
-	aiEndpoint := getenvDefault("ARX_AI_ZMQ", "tcp://localhost:5557")
-	httpAddr := getenvDefault("ARX_HTTP_ADDR", ":8080")
+	cppEndpoint := getenvDefault("ARX_CPP_ZMQ", "tcp://127.0.0.1:5556")
+	aiEndpoint := getenvDefault("ARX_AI_ZMQ", "tcp://127.0.0.1:5557")
+	httpAddr := getenvDefault("ARX_HTTP_ADDR", "127.0.0.1:8080")
 
 	telemetryBus := telemetry.NewBus(256)
 	gestureBus := telemetry.NewBus(64)
@@ -73,10 +76,12 @@ func main() {
 	})
 
 	srv := &http.Server{
-		Addr:         httpAddr,
-		Handler:      r,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
+		Addr:              httpAddr,
+		Handler:           r,
+		ReadTimeout:       10 * time.Second,
+		ReadHeaderTimeout: 5 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	go func() {
@@ -117,13 +122,59 @@ func getenvDefault(key, fallback string) string {
 
 func corsMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", "*")
+		origin := strings.TrimSpace(c.GetHeader("Origin"))
+		if origin != "" && corsOriginAllowed(origin, c.Request.Host) {
+			c.Header("Access-Control-Allow-Origin", origin)
+			c.Header("Vary", "Origin")
+		}
 		c.Header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
+		if c.Request.Method == http.MethodOptions {
+			if origin != "" && !corsOriginAllowed(origin, c.Request.Host) {
+				c.AbortWithStatus(http.StatusForbidden)
+				return
+			}
+			c.AbortWithStatus(http.StatusNoContent)
 			return
 		}
 		c.Next()
 	}
+}
+
+func corsOriginAllowed(origin, requestHost string) bool {
+	parsed, err := url.Parse(origin)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return false
+	}
+
+	if strings.EqualFold(parsed.Host, requestHost) {
+		return true
+	}
+	if isLoopbackHost(parsed.Hostname()) && isLoopbackRequestHost(requestHost) {
+		return true
+	}
+
+	for _, allowed := range strings.Split(os.Getenv("ARX_CORS_ALLOWED_ORIGINS"), ",") {
+		allowed = strings.TrimSpace(strings.TrimRight(allowed, "/"))
+		if allowed != "" && strings.EqualFold(strings.TrimRight(origin, "/"), allowed) {
+			return true
+		}
+	}
+	return false
+}
+
+func isLoopbackRequestHost(hostport string) bool {
+	host := hostport
+	if parsedHost, _, err := net.SplitHostPort(hostport); err == nil {
+		host = parsedHost
+	}
+	return isLoopbackHost(strings.Trim(host, "[]"))
+}
+
+func isLoopbackHost(host string) bool {
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
