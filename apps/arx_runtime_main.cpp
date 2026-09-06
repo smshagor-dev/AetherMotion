@@ -1,6 +1,7 @@
 #include <csignal>
 #include <filesystem>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <string_view>
 
@@ -21,6 +22,19 @@ void handle_sigint(int) {
     if (g_runtime_app != nullptr) {
         g_runtime_app->request_shutdown();
     }
+}
+
+std::string runtime_status_json(
+    const arx::engine::Application& app,
+    arx::engine::RuntimeMode mode) {
+    std::ostringstream out;
+    out << "{"
+        << "\"state\":\"" << (app.shutdown_requested() ? "stopping" : (app.paused() ? "paused" : "running")) << "\","
+        << "\"paused\":" << (app.paused() ? "true" : "false") << ","
+        << "\"shutdown_requested\":" << (app.shutdown_requested() ? "true" : "false") << ","
+        << "\"mode\":\"" << arx::apps::runtime_mode_name(mode) << "\""
+        << "}";
+    return out.str();
 }
 
 }  // namespace
@@ -63,11 +77,53 @@ int main(int argc, char** argv) {
         return report.all_valid() ? 0 : 2;
     }
 
+    arx::engine::Application app(config, options.mode, session_path);
     arx::engine::ipc::LocalIpcServer ipc_server;
     if (!options.disable_ipc) {
-        ipc_server.set_command_handler([&ipc_server](std::string_view command) {
-            if (command == arx::engine::ipc::kPingCommand) {
-                ipc_server.publish(arx::engine::ipc::protocol_pong());
+        ipc_server.set_command_handler([&ipc_server, &app, mode = options.mode](std::string_view payload) {
+            const auto command = arx::engine::ipc::parse_runtime_command(payload);
+            if (!command.has_value()) {
+                ipc_server.publish(arx::engine::ipc::protocol_command_result(
+                    "unknown", "error", "invalid command payload"));
+                return;
+            }
+
+            using arx::engine::ipc::RuntimeCommandKind;
+            switch (command->kind) {
+            case RuntimeCommandKind::kPing:
+                ipc_server.publish(arx::engine::ipc::protocol_pong(command->request_id));
+                break;
+            case RuntimeCommandKind::kStatus:
+                ipc_server.publish(arx::engine::ipc::protocol_command_result(
+                    command->name,
+                    "ok",
+                    {},
+                    command->request_id,
+                    runtime_status_json(app, mode)));
+                break;
+            case RuntimeCommandKind::kPause:
+                app.request_pause(true);
+                ipc_server.publish(arx::engine::ipc::protocol_command_result(
+                    command->name, "ok", "pause requested", command->request_id,
+                    runtime_status_json(app, mode)));
+                break;
+            case RuntimeCommandKind::kResume:
+                app.request_pause(false);
+                ipc_server.publish(arx::engine::ipc::protocol_command_result(
+                    command->name, "ok", "resume requested", command->request_id,
+                    runtime_status_json(app, mode)));
+                break;
+            case RuntimeCommandKind::kShutdown:
+                ipc_server.publish(arx::engine::ipc::protocol_command_result(
+                    command->name, "ok", "graceful shutdown requested", command->request_id,
+                    runtime_status_json(app, mode)));
+                app.request_shutdown();
+                break;
+            case RuntimeCommandKind::kUnknown:
+            default:
+                ipc_server.publish(arx::engine::ipc::protocol_command_result(
+                    command->name, "error", "unsupported command", command->request_id));
+                break;
             }
         });
 
@@ -90,7 +146,6 @@ int main(int argc, char** argv) {
         std::cerr << "[ARX][warn] --mode fusion-demo is deprecated; use --mode graphical-fusion\n";
     }
 
-    arx::engine::Application app(config, options.mode, session_path);
     g_runtime_app = &app;
     std::signal(SIGINT, handle_sigint);
     const int code = app.run();

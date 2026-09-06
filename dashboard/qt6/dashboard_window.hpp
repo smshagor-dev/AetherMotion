@@ -28,9 +28,22 @@ public:
     DashboardWindow();
     ~DashboardWindow() override;
 
+    void restore_operator_settings();
+    void save_operator_settings() const;
+
 public slots:
     void apply_frame_telemetry(const arx::engine::telemetry::RuntimeTelemetryFrame& frame);
     void apply_gesture_event(const arx::engine::GestureRuntimeEvent& event);
+    void apply_runtime_command_result(
+        const QString& name,
+        const QString& status,
+        const QString& detail,
+        const QString& request_id);
+    void apply_runtime_status(
+        const QString& state,
+        bool paused,
+        bool shutdown_requested,
+        const QString& mode);
 
 private slots:
     void start_native_runtime();

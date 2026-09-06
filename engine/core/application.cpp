@@ -141,8 +141,19 @@ int Application::run() {
 }
 
 void Application::request_shutdown() {
-    shutdown_requested_ = true;
-    context_.health_monitor.report({"runtime", true, "shutdown requested"});
+    shutdown_requested_.store(true, std::memory_order_release);
+}
+
+void Application::request_pause(bool paused) {
+    pause_requested_.store(paused, std::memory_order_release);
+}
+
+bool Application::paused() const noexcept {
+    return pause_requested_.load(std::memory_order_acquire);
+}
+
+bool Application::shutdown_requested() const noexcept {
+    return shutdown_requested_.load(std::memory_order_acquire);
 }
 
 void Application::shutdown() {
@@ -155,6 +166,33 @@ void Application::shutdown() {
 }
 
 bool Application::tick(double dt_seconds) {
+    if (shutdown_requested()) {
+        return false;
+    }
+
+    const bool paused_now = paused();
+    if (paused_now) {
+        if (!pause_state_reported_) {
+            context_.health_monitor.report({"runtime", true, "paused by operator"});
+            runtime_log("runtime", "paused by operator");
+            pause_state_reported_ = true;
+        }
+#ifdef ARX_HAS_OPENCV
+        if (frame_queue_ != nullptr) {
+            LiveFrameLease discarded;
+            while (frame_queue_->try_pop(discarded)) {
+            }
+        }
+#endif
+        return !shutdown_requested();
+    }
+
+    if (pause_state_reported_) {
+        context_.health_monitor.report({"runtime", true, "resumed by operator"});
+        runtime_log("runtime", "resumed by operator");
+        pause_state_reported_ = false;
+    }
+
     auto frame_scope = context_.profiler.scope("runtime.frame");
 
     replay::SessionFrame source_frame;
@@ -318,7 +356,7 @@ bool Application::tick(double dt_seconds) {
 #endif
     context_.telemetry.push_timeline(context_.telemetry.encode_frame(telemetry_frame));
 
-    return !shutdown_requested_;
+    return !shutdown_requested();
 }
 
 int Application::run_tracker_smoke() {
@@ -659,7 +697,7 @@ void Application::render_live_frame(const vision::tracking::VideoFrame& frame,
         tracking.debug.hand_model_loaded || tracking.debug.face_model_loaded);
     cv::imshow("ARX Platform v3 Runtime", composed);
     if (cv::waitKey(1) == 27) {
-        shutdown_requested_ = true;
+        request_shutdown();
         context_.health_monitor.report({"runtime", true, "operator requested shutdown"});
     }
 

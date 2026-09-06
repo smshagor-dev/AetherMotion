@@ -1,5 +1,6 @@
 #include "dashboard/qt6/runtime_ipc_client.hpp"
 
+#include <algorithm>
 #include <cstdint>
 #include <string>
 
@@ -45,10 +46,12 @@ vision::GestureEventKind event_kind_from_name(const QString& name) {
 }  // namespace
 
 RuntimeIpcClient::RuntimeIpcClient(QObject* parent) : QObject(parent) {
-    reconnect_timer_.setInterval(1000);
-    reconnect_timer_.setSingleShot(false);
+    reconnect_timer_.setSingleShot(true);
+    heartbeat_timer_.setInterval(2000);
+    heartbeat_timer_.setSingleShot(false);
 
     connect(&reconnect_timer_, &QTimer::timeout, this, &RuntimeIpcClient::connect_socket);
+    connect(&heartbeat_timer_, &QTimer::timeout, this, &RuntimeIpcClient::heartbeat_tick);
     connect(&socket_, &QTcpSocket::connected, this, &RuntimeIpcClient::on_connected);
     connect(&socket_, &QTcpSocket::disconnected, this, &RuntimeIpcClient::on_disconnected);
     connect(&socket_, &QTcpSocket::readyRead, this, &RuntimeIpcClient::on_ready_read);
@@ -56,38 +59,79 @@ RuntimeIpcClient::RuntimeIpcClient(QObject* parent) : QObject(parent) {
 }
 
 void RuntimeIpcClient::start(quint16 port) {
+    if (port == 0) {
+        port = engine::ipc::kDefaultPort;
+    }
+
+    if (started_ && port_ != port) {
+        reconnect_timer_.stop();
+        heartbeat_timer_.stop();
+        protocol_ready_ = false;
+        socket_.abort();
+    }
+
     port_ = port;
     started_ = true;
-    if (!reconnect_timer_.isActive()) {
-        reconnect_timer_.start();
-    }
+    reconnect_attempt_ = 0;
     connect_socket();
 }
 
 void RuntimeIpcClient::stop() {
     started_ = false;
+    protocol_ready_ = false;
+    reconnect_attempt_ = 0;
     reconnect_timer_.stop();
+    heartbeat_timer_.stop();
     read_buffer_.clear();
     socket_.abort();
     emit connection_state_changed("IPC stopped", false);
 }
 
 bool RuntimeIpcClient::connected() const noexcept {
-    return socket_.state() == QAbstractSocket::ConnectedState;
+    return protocol_ready_ && socket_.state() == QAbstractSocket::ConnectedState;
+}
+
+quint16 RuntimeIpcClient::port() const noexcept {
+    return port_;
 }
 
 void RuntimeIpcClient::send_ping() {
-    if (!connected()) {
-        return;
+    send_command(QStringLiteral("ping"));
+}
+
+void RuntimeIpcClient::send_status() {
+    send_command(QStringLiteral("status"));
+}
+
+void RuntimeIpcClient::send_pause() {
+    send_command(QStringLiteral("pause"));
+}
+
+void RuntimeIpcClient::send_resume() {
+    send_command(QStringLiteral("resume"));
+}
+
+void RuntimeIpcClient::send_shutdown() {
+    send_command(QStringLiteral("shutdown"));
+}
+
+void RuntimeIpcClient::reconnect_now() {
+    if (!started_) {
+        started_ = true;
     }
-    const auto command = engine::ipc::kPingCommand;
-    send_payload(QByteArray(command.data(), static_cast<int>(command.size())));
+    reconnect_attempt_ = 0;
+    protocol_ready_ = false;
+    heartbeat_timer_.stop();
+    reconnect_timer_.stop();
+    socket_.abort();
+    reconnect_timer_.start(0);
 }
 
 void RuntimeIpcClient::connect_socket() {
     if (!started_ || socket_.state() != QAbstractSocket::UnconnectedState) {
         return;
     }
+
     emit connection_state_changed(
         QString("IPC connecting to 127.0.0.1:%1").arg(port_), false);
     socket_.connectToHost(QStringLiteral("127.0.0.1"), port_);
@@ -95,16 +139,30 @@ void RuntimeIpcClient::connect_socket() {
 
 void RuntimeIpcClient::on_connected() {
     read_buffer_.clear();
+    protocol_ready_ = false;
+    reconnect_timer_.stop();
     emit connection_state_changed(
-        QString("IPC connected to 127.0.0.1:%1").arg(port_), true);
-    send_ping();
+        QString("IPC socket connected to 127.0.0.1:%1; awaiting protocol hello").arg(port_),
+        false);
+
+    QTimer::singleShot(3000, this, [this] {
+        if (started_ && socket_.state() == QAbstractSocket::ConnectedState && !protocol_ready_) {
+            emit connection_state_changed("IPC handshake timeout; reconnecting", false);
+            socket_.abort();
+        }
+    });
 }
 
 void RuntimeIpcClient::on_disconnected() {
+    const bool was_ready = protocol_ready_;
     read_buffer_.clear();
-    emit connection_state_changed("IPC disconnected; reconnecting", false);
-    if (started_ && !reconnect_timer_.isActive()) {
-        reconnect_timer_.start();
+    protocol_ready_ = false;
+    heartbeat_timer_.stop();
+    if (started_) {
+        emit connection_state_changed(
+            was_ready ? "IPC disconnected; reconnect scheduled" : "IPC unavailable; reconnect scheduled",
+            false);
+        schedule_reconnect();
     }
 }
 
@@ -145,6 +203,22 @@ void RuntimeIpcClient::on_error(QAbstractSocket::SocketError) {
         return;
     }
     emit connection_state_changed(QString("IPC: %1").arg(socket_.errorString()), false);
+    if (socket_.state() == QAbstractSocket::UnconnectedState) {
+        schedule_reconnect();
+    }
+}
+
+void RuntimeIpcClient::heartbeat_tick() {
+    if (!connected()) {
+        return;
+    }
+    if (health_timer_.isValid() && health_timer_.elapsed() > 6500) {
+        emit connection_state_changed("IPC heartbeat stale; reconnecting", false);
+        protocol_ready_ = false;
+        socket_.abort();
+        return;
+    }
+    send_ping();
 }
 
 void RuntimeIpcClient::handle_payload(const QByteArray& payload) {
@@ -167,18 +241,49 @@ void RuntimeIpcClient::handle_payload(const QByteArray& payload) {
                     .arg(version)
                     .arg(engine::ipc::kProtocolVersion),
                 false);
+            started_ = false;
+            reconnect_timer_.stop();
             socket_.disconnectFromHost();
             return;
         }
+
+        protocol_ready_ = true;
+        reconnect_attempt_ = 0;
+        health_timer_.start();
+        if (!heartbeat_timer_.isActive()) {
+            heartbeat_timer_.start();
+        }
         emit protocol_ready(version, transport);
+        emit connection_state_changed(
+            QString("IPC v%1 ready on 127.0.0.1:%2").arg(version).arg(port_),
+            true);
+        send_ping();
+        send_status();
         return;
     }
 
     if (type == "command_result") {
-        if (root.value("name").toString() == "ping" && root.value("status").toString() == "ok") {
+        const QString name = root.value("name").toString();
+        const QString status = root.value("status").toString();
+        const QString detail = root.value("detail").toString();
+        const QString request_id = root.value("request_id").toString();
+
+        if (name == "ping" && status == "ok") {
+            health_timer_.restart();
             emit connection_state_changed(
                 QString("IPC v%1 healthy").arg(engine::ipc::kProtocolVersion), true);
         }
+
+        if (root.value("runtime").isObject()) {
+            const QJsonObject runtime = root.value("runtime").toObject();
+            emit runtime_status(
+                runtime.value("state").toString(),
+                runtime.value("paused").toBool(),
+                runtime.value("shutdown_requested").toBool(),
+                runtime.value("mode").toString());
+        }
+
+        emit command_result(name, status, detail, request_id);
         return;
     }
 
@@ -241,7 +346,8 @@ void RuntimeIpcClient::handle_payload(const QByteArray& payload) {
 }
 
 void RuntimeIpcClient::send_payload(const QByteArray& payload) {
-    if (!connected() || payload.isEmpty() || payload.size() > static_cast<qsizetype>(engine::ipc::kMaxPayloadBytes)) {
+    if (socket_.state() != QAbstractSocket::ConnectedState || payload.isEmpty() ||
+        payload.size() > static_cast<qsizetype>(engine::ipc::kMaxPayloadBytes)) {
         return;
     }
 
@@ -254,6 +360,34 @@ void RuntimeIpcClient::send_payload(const QByteArray& payload) {
     framed.append(static_cast<char>(length & 0xFFU));
     framed.append(payload);
     socket_.write(framed);
+    socket_.flush();
+}
+
+void RuntimeIpcClient::send_command(const QString& name) {
+    if (!connected()) {
+        emit connection_state_changed(
+            QString("IPC command '%1' skipped: transport not ready").arg(name), false);
+        return;
+    }
+
+    const QString request_id = QString("qt-%1").arg(++request_sequence_);
+    QJsonObject command;
+    command.insert(QStringLiteral("type"), QStringLiteral("command"));
+    command.insert(QStringLiteral("version"), static_cast<int>(engine::ipc::kProtocolVersion));
+    command.insert(QStringLiteral("name"), name);
+    command.insert(QStringLiteral("request_id"), request_id);
+    send_payload(QJsonDocument(command).toJson(QJsonDocument::Compact));
+}
+
+void RuntimeIpcClient::schedule_reconnect() {
+    if (!started_ || reconnect_timer_.isActive()) {
+        return;
+    }
+
+    const int exponent = std::min(reconnect_attempt_, 4);
+    const int delay_ms = std::min(5000, 250 * (1 << exponent));
+    ++reconnect_attempt_;
+    reconnect_timer_.start(delay_ms);
 }
 
 }  // namespace arx::dashboard
