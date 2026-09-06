@@ -1,21 +1,44 @@
+# Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
-
 .venv/
 venv/
 env/
 
+# Native build outputs
 build/
-build-release/
-build-release-mp/
+build-*/
+build_qt/
+out/
 dist/
+CMakeUserPresets.json
+compile_commands.json
+
+# IDE / OS
+.vscode/
+.idea/
+.vs/
+*.user
+*.suo
+.DS_Store
+Thumbs.db
+
+# Runtime artifacts
 sessions/*.log
+sessions/*.jsonl
 mediapipe/
 models/*.task
 arx_dashboard_smoke*.log
+*.log
+
+# Test / coverage artifacts
+coverage/
+*.gcda
+*.gcno
+*.profraw
+*.profdata

@@ -9,7 +9,11 @@
 package ws
 
 import (
+	"net"
 	"net/http"
+	"net/url"
+	"os"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -27,16 +31,59 @@ const (
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 4096,
-	CheckOrigin:     func(r *http.Request) bool { return true },
+	CheckOrigin:     websocketOriginAllowed,
+}
+
+func websocketOriginAllowed(r *http.Request) bool {
+	origin := strings.TrimSpace(r.Header.Get("Origin"))
+	if origin == "" {
+		// Non-browser native clients commonly omit Origin.
+		return true
+	}
+
+	parsed, err := url.Parse(origin)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return false
+	}
+	if strings.EqualFold(parsed.Host, r.Host) {
+		return true
+	}
+	if isLoopbackHost(parsed.Hostname()) && isLoopbackRequestHost(r.Host) {
+		return true
+	}
+
+	for _, allowed := range strings.Split(os.Getenv("ARX_WS_ALLOWED_ORIGINS"), ",") {
+		allowed = strings.TrimSpace(strings.TrimRight(allowed, "/"))
+		if allowed != "" && strings.EqualFold(strings.TrimRight(origin, "/"), allowed) {
+			return true
+		}
+	}
+	return false
+}
+
+func isLoopbackRequestHost(hostport string) bool {
+	host := hostport
+	if parsedHost, _, err := net.SplitHostPort(hostport); err == nil {
+		host = parsedHost
+	}
+	return isLoopbackHost(strings.Trim(host, "[]"))
+}
+
+func isLoopbackHost(host string) bool {
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 
 type client struct {
-	hub    *Hub
-	conn   *websocket.Conn
-	send   chan []byte
-	id     uint64
+	hub  *Hub
+	conn *websocket.Conn
+	send chan []byte
+	id   uint64
 }
 
 func (c *client) writePump() {
@@ -60,7 +107,7 @@ func (c *client) writePump() {
 				return
 			}
 			w.Write(msg)
-			// Drain any queued messages in the same write frame
+			// Drain any queued messages in the same write frame.
 			n := len(c.send)
 			for i := 0; i < n; i++ {
 				w.Write([]byte{'\n'})
@@ -122,17 +169,21 @@ func (h *Hub) Run() {
 		case c := <-h.register:
 			h.mu.Lock()
 			h.clients[c] = struct{}{}
+			total := len(h.clients)
 			h.mu.Unlock()
-			h.log.Infof("[WS] Client %d connected (total=%d)", c.id, len(h.clients))
+			h.log.Infof("[WS] Client %d connected (total=%d)", c.id, total)
 
 		case c := <-h.unregister:
 			h.mu.Lock()
 			if _, ok := h.clients[c]; ok {
 				delete(h.clients, c)
 				close(c.send)
-				h.log.Infof("[WS] Client %d disconnected (total=%d)", c.id, len(h.clients))
+				total := len(h.clients)
+				h.mu.Unlock()
+				h.log.Infof("[WS] Client %d disconnected (total=%d)", c.id, total)
+			} else {
+				h.mu.Unlock()
 			}
-			h.mu.Unlock()
 
 		case msg := <-h.broadcast:
 			h.mu.RLock()
@@ -140,7 +191,7 @@ func (h *Hub) Run() {
 				select {
 				case c.send <- msg:
 				default:
-					// Slow client: drop message (never block)
+					// Slow client: drop message (never block).
 				}
 			}
 			h.mu.RUnlock()
@@ -152,7 +203,7 @@ func (h *Hub) Broadcast(msg []byte) {
 	select {
 	case h.broadcast <- msg:
 	default:
-		// Hub queue full: drop oldest
+		// Hub queue full: drop message rather than blocking producers.
 	}
 }
 
