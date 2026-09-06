@@ -59,8 +59,51 @@ int main() {
                       "protocol hello should expose the protocol identity");
     ok &= expect_true(hello.find("\"version\":1") != std::string::npos,
                       "protocol hello should expose protocol version 1");
-    ok &= expect_true(protocol_pong().find("\"status\":\"ok\"") != std::string::npos,
-                      "ping result should report an explicit ok status");
+    ok &= expect_true(hello.find("\"pause\"") != std::string::npos &&
+                          hello.find("\"shutdown\"") != std::string::npos,
+                      "protocol hello should advertise runtime controls");
+    ok &= expect_true(protocol_pong("qt-1").find("\"request_id\":\"qt-1\"") != std::string::npos,
+                      "ping result should preserve request correlation id");
+
+    const std::string pause_payload = runtime_command_payload(RuntimeCommandKind::kPause, "qt-42");
+    const auto pause = parse_runtime_command(pause_payload);
+    ok &= expect_true(pause.has_value(), "pause command should parse");
+    ok &= expect_true(pause.has_value() && pause->kind == RuntimeCommandKind::kPause,
+                      "pause command should map to pause kind");
+    ok &= expect_true(pause.has_value() && pause->request_id == "qt-42",
+                      "command parser should preserve request id");
+
+    const auto reordered = parse_runtime_command(
+        R"({"request_id":"desktop.9","name":"resume","type":"command","version":1})");
+    ok &= expect_true(reordered.has_value() && reordered->kind == RuntimeCommandKind::kResume,
+                      "command parser should not depend on field ordering");
+
+    const auto unknown = parse_runtime_command(
+        R"({"type":"command","version":1,"name":"format_disk","request_id":"qt-77"})");
+    ok &= expect_true(unknown.has_value() && unknown->kind == RuntimeCommandKind::kUnknown,
+                      "well-formed unsupported commands should remain distinguishable from malformed payloads");
+
+    ok &= expect_true(!parse_runtime_command(
+                          R"({"type":"command","version":2,"name":"pause"})")
+                          .has_value(),
+                      "commands from unsupported protocol versions should fail closed");
+    ok &= expect_true(!parse_runtime_command(
+                          R"({"type":"command","version":1,"name":"pause","request_id":"bad request id"})")
+                          .has_value(),
+                      "request ids containing unsafe characters should be rejected");
+
+    const std::string result = protocol_command_result(
+        "status",
+        "ok",
+        "runtime \"healthy\"",
+        "qt-99",
+        R"({"state":"paused","paused":true,"shutdown_requested":false,"mode":"live"})");
+    ok &= expect_true(result.find("\"request_id\":\"qt-99\"") != std::string::npos,
+                      "command result should include request id");
+    ok &= expect_true(result.find("runtime \\\"healthy\\\"") != std::string::npos,
+                      "command result detail should be JSON escaped");
+    ok &= expect_true(result.find("\"runtime\":{\"state\":\"paused\"") != std::string::npos,
+                      "status result should carry structured runtime state");
 
     return ok ? 0 : 1;
 }
