@@ -32,6 +32,8 @@ add_library(arx_engine
     engine/profiling/runtime_metrics.cpp
     engine/config/runtime_config.cpp
     engine/diagnostics/health_monitor.cpp
+    engine/ipc/local_ipc_protocol.cpp
+    engine/ipc/local_ipc_server.cpp
     engine/telemetry/telemetry_encoder.cpp
     engine/runtime/runtime_context.cpp
     apps/runtime_cli.cpp
@@ -45,6 +47,9 @@ target_compile_definitions(arx_engine PUBLIC
     $<$<BOOL:${ARX_ENABLE_ZMQ}>:ARX_ENABLE_ZMQ=1>
     $<$<BOOL:${ARX_ENABLE_REMOTE}>:ARX_ENABLE_REMOTE=1>
 )
+if(WIN32)
+    target_link_libraries(arx_engine PUBLIC ws2_32)
+endif()
 
 add_library(arx_vision
     vision/gesture_engine/gesture_engine.cpp
@@ -169,17 +174,19 @@ if(OpenCV_FOUND)
 endif()
 
 if(ARX_ENABLE_QT6 AND NOT ARX_ENABLE_HEADLESS)
-    find_package(Qt6 COMPONENTS Widgets Charts OpenGLWidgets QUIET)
+    find_package(Qt6 COMPONENTS Widgets Charts OpenGLWidgets Network QUIET)
     if(Qt6_FOUND)
         qt_standard_project_setup()
         add_executable(arx_dashboard_qt6
             dashboard/qt6/main.cpp
             dashboard/qt6/dashboard_window.cpp
+            dashboard/qt6/runtime_ipc_client.cpp
         )
         target_include_directories(arx_dashboard_qt6 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
         target_link_libraries(arx_dashboard_qt6 PRIVATE
             arx_engine arx_vision arx_ar arx_replay
             Qt6::Widgets
+            Qt6::Network
         )
         if(TARGET Qt6::Charts)
             target_link_libraries(arx_dashboard_qt6 PRIVATE Qt6::Charts)
@@ -215,6 +222,10 @@ add_test(NAME arx_test_transport COMMAND arx_test_transport)
 add_executable(arx_test_cli tests/test_cli.cpp)
 target_link_libraries(arx_test_cli PRIVATE arx_engine)
 add_test(NAME arx_test_cli COMMAND arx_test_cli)
+
+add_executable(arx_test_local_ipc_protocol tests/test_local_ipc_protocol.cpp)
+target_link_libraries(arx_test_local_ipc_protocol PRIVATE arx_engine)
+add_test(NAME arx_test_local_ipc_protocol COMMAND arx_test_local_ipc_protocol)
 
 add_executable(arx_test_tracking_setup tests/test_tracking_setup.cpp)
 target_link_libraries(arx_test_tracking_setup PRIVATE arx_engine)
