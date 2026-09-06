@@ -180,6 +180,7 @@ if(ARX_ENABLE_QT6 AND NOT ARX_ENABLE_HEADLESS)
         add_executable(arx_dashboard_qt6
             dashboard/qt6/main.cpp
             dashboard/qt6/dashboard_window.cpp
+            dashboard/qt6/dashboard_window_settings.cpp
             dashboard/qt6/runtime_ipc_client.cpp
         )
         target_include_directories(arx_dashboard_qt6 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
