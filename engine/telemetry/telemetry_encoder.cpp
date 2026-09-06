@@ -1,10 +1,26 @@
 #include "engine/telemetry/telemetry_encoder.hpp"
 
+#include <mutex>
 #include <sstream>
+#include <utility>
 
 #include "vision/gesture_engine/gesture_types.hpp"
 
 namespace arx::engine::telemetry {
+
+namespace {
+
+std::mutex& process_sink_mutex() {
+    static std::mutex mutex;
+    return mutex;
+}
+
+TelemetryEncoder::ProcessSink& process_sink() {
+    static TelemetryEncoder::ProcessSink sink;
+    return sink;
+}
+
+}  // namespace
 
 std::string TelemetryEncoder::encode_frame(const RuntimeTelemetryFrame& frame) const {
     std::ostringstream out;
@@ -58,6 +74,15 @@ std::string TelemetryEncoder::encode_gesture_event(const engine::GestureRuntimeE
 }
 
 void TelemetryEncoder::push_timeline(std::string entry) {
+    ProcessSink sink;
+    {
+        std::lock_guard lock(process_sink_mutex());
+        sink = process_sink();
+    }
+    if (sink) {
+        sink(entry);
+    }
+
     timeline_.push_front(std::move(entry));
     while (timeline_.size() > 120) {
         timeline_.pop_back();
@@ -66,6 +91,16 @@ void TelemetryEncoder::push_timeline(std::string entry) {
 
 const std::deque<std::string>& TelemetryEncoder::timeline() const noexcept {
     return timeline_;
+}
+
+void TelemetryEncoder::install_process_sink(ProcessSink sink) {
+    std::lock_guard lock(process_sink_mutex());
+    process_sink() = std::move(sink);
+}
+
+void TelemetryEncoder::clear_process_sink() {
+    std::lock_guard lock(process_sink_mutex());
+    process_sink() = {};
 }
 
 }  // namespace arx::engine::telemetry
