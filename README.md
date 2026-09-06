@@ -1,167 +1,132 @@
-# ARX Platform
+# AetherMotion
 
-## Subtitle
+AetherMotion is a real-time gesture intelligence and spatial interaction platform built around a C++20 native runtime. The project combines camera/tracking pipelines, landmark smoothing, gesture classification, spatial interaction, AR/fusion rendering, telemetry, deterministic recording/replay, an operator GUI, and optional remote services.
 
-C++-First Real-Time Gesture Intelligence and Spatial AR Engine
+The current production direction is the native ARX runtime. Python and Go remain useful as optional research, migration, telemetry, and remote-integration layers rather than mandatory dependencies of the core perception loop.
 
-## Overview
+## System architecture
 
-ARX Platform has evolved across three major stages:
-- `v1`: early experimentation and proof-of-concept work
-- `v2`: Python + Go real-time platform with dashboard and AI-layer orchestration
-- `v3`: native C++-first runtime focused on production-grade low-latency execution
+```text
+Camera / Replay
+      |
+      v
+Native Capture + Tracking
+      |
+      v
+Landmark Processing
+      |
+      v
+Smoothing + Gesture Engine
+      |
+      v
+Spatial Interaction
+      |
+      +------------------+
+      |                  |
+      v                  v
+AR / Fusion         Recording / Replay
+      |                  |
+      +--------+---------+
+               |
+               v
+         Telemetry / Health
+               |
+               v
+     Qt6 Operator Control Center
+               |
+      optional adapters
+        /             \
+       v               v
+Go Control Plane   Python AI/Tools
+```
 
-This repository now centers on `ARX Platform v3.x`, while still keeping `v1` and `v2` legacy paths available for reference, migration support, and optional tooling.
+## Core capabilities
 
-## Version Timeline
+- C++20 native runtime with live, record, replay, fusion, tracker-smoke, and replay-validation modes
+- MediaPipe/OpenCV integration paths for hand and face tracking
+- One Euro smoothing and velocity-aware landmark processing
+- gesture classification, debounce/state handling, and runtime gesture events
+- spatial interaction and AR/fusion modules
+- JSONL session recording, deterministic replay, validation, CSV/JSONL export
+- runtime telemetry, profiling, diagnostics, and health monitoring
+- Qt6 desktop operator control center
+- optional Python MediaPipe runtime and PySide6 dashboard for legacy/research workflows
+- optional Go REST/WebSocket telemetry control plane
+- Docker/systemd deployment assets for service components
+- automated C++, Go, and Python CI validation
 
-### V1
+## Operator GUI
 
-`v1` was the initial exploration phase of ARX.
+The Qt6 Control Center is the preferred desktop operations surface. It can:
 
-Primary characteristics:
-- rapid prototyping
-- early computer-vision experiments
-- basic gesture detection concepts
-- non-production architecture
-- fast iteration over system design ideas
+- select the repository/runtime workspace
+- choose native runtime mode and camera
+- choose replay/session files
+- start and stop the native ARX runtime
+- validate required model assets
+- start and stop the optional Go control plane and Python AI layer
+- centralize runtime/service logs
+- show process state, telemetry metrics, gesture events, health, and tracking status
 
-`v1` established the core product direction:
-- hand-driven interaction
-- gesture intelligence
-- live vision input
-- operator-facing visualization
+Build the desktop target with Qt6 installed:
 
-### V2
+```bash
+cmake --preset desktop-dev
+cmake --build --preset desktop-dev
+```
 
-`v2` turned the early prototype ideas into a working multi-service runtime.
+Then run `arx_dashboard_qt6` from the generated build directory.
 
-Primary architecture:
-- Python AI layer for MediaPipe-based perception
-- Go control plane for telemetry, APIs, and WebSocket routing
-- Python operator dashboard for live monitoring
-- C++ vision engine modules for pipeline and camera-side integration work
+## Native runtime
 
-Key `v2` capabilities:
-- live webcam gesture tracking
-- dashboard telemetry and event timeline
-- ZeroMQ-based data transport
-- WebSocket control-plane bridge
-- gesture classification and smoothing in Python
-- record/replay-oriented orchestration patterns
-
-Important `v2` directories:
-- `python_ai_layer/`
-- `python_gui_dashboard/`
-- `go_control_plane/`
-- `cpp_vision_engine/`
-
-### V3
-
-`v3` is the current main direction of the project.
-
-ARX Platform `v3.x` is no longer just a scaffold. The runtime-critical gesture path, smoothing path, event path, replay path, and core execution loop now run in native C++.
-
-## What Was Migrated Into V3
-
-Native C++ `v3` contains migrated logic from `v2` for:
-- gesture classification rules from `python_ai_layer/gesture/gesture_classifier.py`
-- One Euro smoothing and velocity estimation from `python_ai_layer/gesture/smoothing_filter.py`
-- gesture state/debounce behavior from `python_ai_layer/gesture/interaction_state_machine.py`
-- session-oriented orchestration patterns from `python_ai_layer/gesture_engine.py`
-- render, camera, pipeline, telemetry, and shared-memory bridge structure from `cpp_vision_engine/`
-- operator dashboard metrics model and timeline concepts from `python_gui_dashboard/main_dashboard.py`
-
-## Native C++ Runtime Status
-
-Implemented natively in `v3`:
-- `vision/gesture_engine/gesture_engine.*`
-- `vision/gesture_engine/gesture_classifier.*`
-- `vision/smoothing/one_euro_filter.*`
-- `vision/smoothing/landmark_smoother.*`
-- `vision/spatial_analysis/spatial_interaction_engine.*`
-- `engine/events/gesture_events.hpp`
-- `engine/events/runtime_events.hpp`
-- `replay/recorder/session_recorder.*`
-- `replay/playback/session_player.*`
-- `replay/exporters/jsonl_exporter.*`
-- `replay/exporters/csv_exporter.*`
-- `engine/telemetry/telemetry_encoder.*`
-- `engine/core/application.*`
-- `apps/arx_runtime_main.cpp`
-
-Migrated legacy native pipeline modules are now placed under `v3` boundaries:
-- `vision/camera/camera_manager.*`
-- `vision/preprocessing/frame_pipeline.*`
-- `ar/renderer/render_engine.*`
-- `engine/ipc/shared_memory_bridge.*`
-
-## Runtime Modes
-
-Supported native CLI modes:
+Supported modes:
 
 ```bash
 arx_runtime --mode live
 arx_runtime --mode record
+arx_runtime --mode graphical-fusion
 arx_runtime --mode replay --session sessions/sample.jsonl
+arx_runtime --mode fusion-replay --session sessions/sample.jsonl
+arx_runtime --mode tracker-smoke
+arx_runtime --mode validate-replay --session sessions/sample.jsonl
 ```
 
-Current mode semantics:
-- `live`: runs the native runtime loop with live camera and tracker integration paths
-- `record`: runs the same loop and records JSONL session frames
-- `replay`: replays a JSONL session back through the same gesture pipeline without camera dependency
-
-## Python and Go Status
-
-Python remains useful for:
-- training
-- datasets
-- experiments
-- offline analysis
-- legacy `v2` runtime support
-
-Go remains useful for:
-- remote telemetry
-- WebSocket relay
-- REST API
-- cloud and remote integration
-- legacy `v2` control-plane support
-
-Neither Python nor Go is intended to be mandatory in the core `v3` runtime path.
-
-## Build
-
-Headless validated build:
+Model validation:
 
 ```bash
-cmake -S . -B build -DARX_ENABLE_QT6=OFF -DARX_ENABLE_HEADLESS=ON
-cmake --build build --parallel
-ctest -C Debug --test-dir build --output-on-failure
+arx_runtime --check-models
 ```
 
-Qt-enabled build:
+## Reproducible builds
+
+Headless development build:
 
 ```bash
-cmake -S . -B build_qt -DARX_ENABLE_QT6=ON
-cmake --build build_qt --parallel
+cmake --preset headless-dev
+cmake --build --preset headless-dev
+ctest --preset headless-dev
 ```
 
-## Required Downloads
+Desktop Qt6 build:
 
-For a full Windows development setup, these are the main things you may need to download.
+```bash
+cmake --preset desktop-dev
+cmake --build --preset desktop-dev
+```
 
-### Model Files
+Release headless build:
 
-Place these files in the local `models/` folder:
-- `models/hand_landmarker.task`
-- `models/face_landmarker.task`
+```bash
+cmake --preset release-headless
+cmake --build --preset release-headless
+ctest --preset release-headless
+```
 
-Official model sources:
-- Hand Landmarker guide: https://ai.google.dev/edge/mediapipe/solutions/vision/hand_landmarker
-- Hand Landmarker model bundle: https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task
-- Face Landmarker model bundle: https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task
+The native build intentionally supports a dependency-light headless configuration so core behavior can be validated in CI without requiring Qt, OpenCV, or MediaPipe.
 
-After download, your layout should look like this:
+## Models and native tracking
+
+For MediaPipe tracking, place the required model assets under `models/`:
 
 ```text
 models/
@@ -169,235 +134,101 @@ models/
   face_landmarker.task
 ```
 
-### Core Developer Tools
+See:
 
-- Python 3.13: https://www.python.org/downloads/
-- CMake: https://cmake.org/download/
-- Git: https://git-scm.com/download/win
-- Visual Studio 2022 Build Tools: https://visualstudio.microsoft.com/downloads/
+- [Windows native tracking setup](docs/WINDOWS_NATIVE_TRACKING_SETUP.md)
+- [MediaPipe Windows build](docs/MEDIAPIPE_WINDOWS_BUILD.md)
+- [Qt6 Windows setup](docs/INSTALL_QT6_WINDOWS.md)
+- [Qt6 Linux setup](docs/INSTALL_QT6_LINUX.md)
 
-Recommended Visual Studio workloads/components:
-- Desktop development with C++
-- MSVC v143 toolset
-- Windows 10 or Windows 11 SDK
+Model binaries are intentionally not committed to the repository.
 
-### MediaPipe Build Dependencies
+## Optional service stack
 
-- Bazelisk: https://github.com/bazelbuild/bazelisk/releases
-- Bazelisk Windows install guide and package options: https://github.com/bazelbuild/bazelisk
-- JDK 17: https://adoptium.net/temurin/releases/?version=17
-- MediaPipe repository: https://github.com/google-ai-edge/mediapipe
-
-ARX pins Bazel via:
-- `mediapipe/.bazelversion` -> `7.4.1`
-
-### Optional Runtime and UI Dependencies
-
-- OpenCV releases: https://github.com/opencv/opencv/releases
-- OpenCV install overview: https://docs.opencv.org/4.x/d0/d3d/tutorial_general_install.html
-- Qt download page: https://www.qt.io/download-open-source
-- Qt for Windows docs: https://doc.qt.io/qt-6/windows.html
-
-### After Download
-
-Useful next commands:
-
-```powershell
-python run.py --install
-python run.py
-```
-
-For native tracking setup and MediaPipe build setup, see:
-- [docs/WINDOWS_NATIVE_TRACKING_SETUP.md](</d:/Final Project/arx-platform-v2.0/arx-platform/docs/WINDOWS_NATIVE_TRACKING_SETUP.md>)
-- [docs/MEDIAPIPE_WINDOWS_BUILD.md](</d:/Final Project/arx-platform-v2.0/arx-platform/docs/MEDIAPIPE_WINDOWS_BUILD.md>)
-
-## Full Project Workflow
-
-This section explains how the full ARX project flows in practice across legacy `v2` services and the current `v3` native runtime direction.
-
-### Workflow 1: Python V2 Live Dashboard Path
-
-This is the easiest end-to-end live workflow currently available on a typical Windows machine.
-
-Flow:
-
-```text
-Webcam
-  -> Python AI Layer
-  -> MediaPipe Tasks
-  -> Gesture Classification + Smoothing
-  -> ZeroMQ Publish
-  -> Go Control Plane
-  -> WebSocket Broadcast
-  -> Python Dashboard Live Feed Panel
-```
-
-What happens:
-- `python_ai_layer/gesture_engine.py` opens the camera
-- MediaPipe hand and face tracking runs on live frames
-- gesture classification and smoothing run in Python
-- the AI layer draws the preview overlay into the frame
-- the frame is JPEG-encoded and published over ZeroMQ
-- `go_control_plane/` receives and forwards the telemetry/frame packet
-- `python_gui_dashboard/` receives the WebSocket message and renders the Live Feed panel
-
-Main command:
-
-```powershell
-python run.py
-```
-
-### Workflow 2: Native C++ V3 Runtime Path
-
-This is the long-term production path for ARX.
-
-Flow:
-
-```text
-Camera Capture
-  -> Native Frame Pipeline
-  -> Native Tracking Integration
-  -> Native Landmark Processing
-  -> Native Smoothing
-  -> Native Gesture Engine
-  -> Spatial Interaction Engine
-  -> AR Rendering
-  -> Telemetry + Replay + Profiling
-```
-
-Current `v3` intent:
-- remove runtime dependence on Python and Go for core perception
-- keep frame transport explicit and low-latency
-- keep gesture logic, smoothing, replay, and runtime orchestration in C++
-- support both headless runtime and Qt-based operator visualization
-
-Main native commands:
+The legacy/research stack can be started from the root bootstrap:
 
 ```bash
-arx_runtime --mode live
-arx_runtime --mode record
-arx_runtime --mode replay --session sessions/sample.jsonl
+python run.py
 ```
 
-### Workflow 3: MediaPipe Native Build Workflow
+Install Python dependencies first when needed:
 
-This workflow is required when you want real native MediaPipe C++ support.
+```bash
+python run.py --install
+```
 
-Flow:
+Useful variants:
+
+```bash
+python run.py --headless
+python run.py --go-only
+python run.py --skip-go
+python run.py --skip-ai
+python run.py --with-native
+```
+
+The bootstrap is dependency-aware: skipping the Go service no longer requires Go to be installed.
+
+## Network security defaults
+
+The Go control plane is local-first and binds to `127.0.0.1:8080` by default. Wildcard browser origins are not accepted.
+
+Remote browser access must explicitly configure allowed origins:
 
 ```text
-Install Bazelisk + JDK 17
-  -> Clone MediaPipe
-  -> Use pinned Bazel version
-  -> Build hand_landmarker + face_landmarker
-  -> Point ARX CMake to headers/libs/models
-  -> Build ARX with MediaPipe enabled
+ARX_CORS_ALLOWED_ORIGINS=https://ops.example.com
+ARX_WS_ALLOWED_ORIGINS=https://ops.example.com
 ```
 
-Typical steps:
-- install Bazelisk
-- install JDK 17
-- confirm `mediapipe/.bazelversion` is `7.4.1`
-- build MediaPipe Tasks libraries
-- place `.task` files in `models/`
-- configure ARX with `ARX_ENABLE_MEDIAPIPE=ON`
+Binding the control plane to a non-loopback address should be treated as an explicit deployment decision. Production remote deployments should add authentication and TLS before exposure outside a trusted host.
 
-Reference docs:
-- [docs/MEDIAPIPE_WINDOWS_BUILD.md](</d:/Final Project/arx-platform-v2.0/arx-platform/docs/MEDIAPIPE_WINDOWS_BUILD.md>)
-- [docs/WINDOWS_NATIVE_TRACKING_SETUP.md](</d:/Final Project/arx-platform-v2.0/arx-platform/docs/WINDOWS_NATIVE_TRACKING_SETUP.md>)
+## Validation
 
-### Workflow 4: Recording and Replay
+The native test suite covers areas including:
 
-ARX is designed not only for live perception, but also for offline repeatability.
+- smoothing filters and velocity estimation
+- gesture classification and gesture-event behavior
+- recording/replay and exporters
+- runtime and configuration validation
+- CLI parsing
+- transport behavior
+- tracking setup and model validation
+- fusion behavior
+- camera-source handling
 
-Flow:
+Pull requests run automated validation for:
+
+- native C++ headless configure/build/test
+- Go tests and vet
+- Python syntax compilation
+
+## Repository layout
 
 ```text
-Live Session
-  -> Runtime Events
-  -> Telemetry
-  -> Session Recorder
-  -> JSONL Session File
-  -> Replay Engine
-  -> Reprocessed Runtime Playback
+apps/                 Native application entry points and CLI
+engine/               Runtime core, config, events, threading, telemetry, diagnostics
+vision/               Tracking, landmarks, smoothing, gesture and spatial analysis
+ar/                   Scene, interaction, renderer and fusion systems
+replay/               Recording, playback and exporters
+dashboard/qt6/         Native Qt6 operator control center
+configs/              Runtime and graphical-fusion configuration
+python_ai_layer/       Optional/legacy Python MediaPipe runtime
+python_gui_dashboard/  Optional/legacy PySide6 dashboard
+go_control_plane/      Optional REST/WebSocket telemetry service
+cpp_vision_engine/     Legacy/migration C++ vision path
+deploy/                Service deployment assets
+docs/                  Architecture, setup and engineering documentation
+tests/                 Native regression tests
 ```
 
-Why this matters:
-- debugging gesture behavior
-- validating event timing
-- testing runtime stability
-- reproducing interaction issues
+## Engineering roadmap
 
-### Workflow 5: Developer Setup Workflow
+The repository audit, target architecture, priorities, acceptance criteria, and delivery milestones are documented in:
 
-Recommended order for a new Windows developer:
+- [Engineering Audit and Delivery Roadmap](docs/ENGINEERING_AUDIT_AND_ROADMAP.md)
+- [ARX v3 Architecture](docs/ARX_V3_ARCHITECTURE.md)
+- [ARX v3 Deployment](docs/ARX_V3_DEPLOYMENT.md)
+- [V2 to V3 Migration](docs/V2_TO_V3_MIGRATION.md)
+- [Graphical Fusion Production Notes](docs/GRAPHICAL_FUSION_ARX_PRODUCTION.md)
 
-1. Install Python 3.13, Git, CMake, and Visual Studio Build Tools.
-2. Download the `.task` model files into `models/`.
-3. Run `python run.py --install`.
-4. Validate the legacy live path with `python run.py`.
-5. If working on native tracking, install Bazelisk and JDK 17.
-6. Build MediaPipe Tasks C++ libraries.
-7. Build ARX native targets with CMake.
-8. Validate dashboard mode, headless mode, and replay mode.
-
-### Workflow 6: Runtime Data Responsibilities
-
-High-level component responsibilities:
-- `python_ai_layer/`: live MediaPipe-based perception and legacy gesture runtime
-- `go_control_plane/`: ZeroMQ ingestion, telemetry relay, WebSocket broadcast, API surface
-- `python_gui_dashboard/`: operator UI, live feed rendering, event display
-- `vision/`, `engine/`, `replay/`, `ar/`: native `v3` runtime systems
-- `models/`: local MediaPipe model bundles
-- `docs/`: setup, deployment, migration, and build guidance
-
-### Recommended Practical Path Today
-
-If your goal is to run the project right now with the least friction:
-
-1. Use the Python `v2` live dashboard path first.
-2. Validate camera, overlay, and gesture telemetry.
-3. Then move to MediaPipe native C++ activation.
-4. Then validate the `v3` native runtime build and tracker integration.
-
-## Tests
-
-Native tests cover:
-- One Euro filter and velocity estimator
-- gesture classification
-- pinch detection
-- swipe detection
-- gesture state and debounce emission
-- session JSONL record and replay
-- CSV export
-- IPC packet header validation
-- profiler timing capture
-
-## Current Status
-
-Working in the current repository:
-- native C++ runtime foundation
-- Python `v2` live dashboard path
-- live dashboard video routed from AI layer into the main operator panel
-- MediaPipe Tasks-based Python tracking compatibility on Python `3.13`
-- Go WebSocket relay path for AI frame telemetry
-
-## Known Limitations
-
-This migration is meaningful, but still in progress.
-
-Still pending in the broader roadmap:
-- full native C++ MediaPipe runtime enablement without legacy fallback
-- fully validated Qt6 dashboard runtime on every target machine
-- richer replay schema with fuller face/frame payload support
-- stronger lock-free transport across the full runtime
-- deeper AR scene rendering and interaction visualization in native `v3`
-
-## Main Docs
-
-- [docs/ARX_V3_ARCHITECTURE.md](</d:/Final Project/arx-platform-v2.0/arx-platform/docs/ARX_V3_ARCHITECTURE.md>)
-- [docs/ARX_V3_DEPLOYMENT.md](</d:/Final Project/arx-platform-v2.0/arx-platform/docs/ARX_V3_DEPLOYMENT.md>)
-- [docs/V2_TO_V3_MIGRATION.md](</d:/Final Project/arx-platform-v2.0/arx-platform/docs/V2_TO_V3_MIGRATION.md>)
-- [docs/WINDOWS_NATIVE_TRACKING_SETUP.md](</d:/Final Project/arx-platform-v2.0/arx-platform/docs/WINDOWS_NATIVE_TRACKING_SETUP.md>)
-- [docs/MEDIAPIPE_WINDOWS_BUILD.md](</d:/Final Project/arx-platform-v2.0/arx-platform/docs/MEDIAPIPE_WINDOWS_BUILD.md>)
-- [docs/GRAPHICAL_FUSION_ARX_PRODUCTION.md](</d:/Final Project/arx-platform-v2.0/arx-platform/docs/GRAPHICAL_FUSION_ARX_PRODUCTION.md>)
+The next major engineering boundary is a versioned local IPC channel between `arx_runtime` and the Qt6 Control Center so structured native telemetry and commands can flow directly without making Python or WebSocket services mandatory.
