@@ -218,7 +218,7 @@ def ensure_tool(command: str, message: str) -> None:
 def start_go_control_plane() -> subprocess.Popen[str]:
     print("[ARX] Starting Go control plane on http://127.0.0.1:8080 ...")
     env = os.environ.copy()
-    env.setdefault("ARX_HTTP_ADDR", ":8080")
+    env.setdefault("ARX_HTTP_ADDR", "127.0.0.1:8080")
     env.setdefault("ARX_CPP_ZMQ", "tcp://127.0.0.1:5556")
     env.setdefault("ARX_AI_ZMQ", "tcp://127.0.0.1:5557")
     return spawn_process(
