@@ -28,6 +28,21 @@ jobs:
       - name: Test
         run: ctest --preset headless-dev
 
+  native-qt6:
+    name: Native Qt6 desktop
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Qt6 build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build qt6-base-dev qt6-charts-dev libgl1-mesa-dev
+      - name: Configure
+        run: cmake --preset desktop-dev
+      - name: Build
+        run: cmake --build --preset desktop-dev
+
   go-control-plane:
     name: Go control plane
     runs-on: ubuntu-latest
