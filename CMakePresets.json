@@ -1,0 +1,82 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 24,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "headless-dev",
+      "displayName": "Headless Development",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/headless-dev",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "ARX_ENABLE_QT6": "OFF",
+        "ARX_ENABLE_HEADLESS": "ON",
+        "ARX_ENABLE_MEDIAPIPE": "OFF",
+        "ARX_ENABLE_REMOTE": "OFF"
+      }
+    },
+    {
+      "name": "desktop-dev",
+      "displayName": "Desktop Qt6 Development",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/desktop-dev",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "ARX_ENABLE_QT6": "ON",
+        "ARX_ENABLE_HEADLESS": "OFF",
+        "ARX_ENABLE_REMOTE": "ON"
+      }
+    },
+    {
+      "name": "release-headless",
+      "displayName": "Release Headless",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/release-headless",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "ARX_ENABLE_QT6": "OFF",
+        "ARX_ENABLE_HEADLESS": "ON",
+        "ARX_ENABLE_MEDIAPIPE": "OFF",
+        "ARX_ENABLE_PROFILING": "OFF",
+        "ARX_ENABLE_REMOTE": "OFF"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "headless-dev",
+      "configurePreset": "headless-dev",
+      "jobs": 0
+    },
+    {
+      "name": "desktop-dev",
+      "configurePreset": "desktop-dev",
+      "jobs": 0
+    },
+    {
+      "name": "release-headless",
+      "configurePreset": "release-headless",
+      "jobs": 0
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "headless-dev",
+      "configurePreset": "headless-dev",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "release-headless",
+      "configurePreset": "release-headless",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}
