@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The local IPC channel is the primary structured telemetry path between the native `arx_runtime` process and the Qt6 AetherMotion Control Center.
+The local IPC channel is the primary structured telemetry and runtime-control path between the native `arx_runtime` process and the Qt6 AetherMotion Control Center.
 
 It intentionally does not depend on Python, Go, WebSocket, ZeroMQ, MediaPipe, or Qt inside the runtime core. The runtime exposes a small loopback-only transport and the desktop client converts protocol payloads back into the native telemetry/event types used by the operator UI.
 
@@ -62,7 +62,8 @@ A newly connected client immediately receives a protocol frame similar to:
   "transport": "tcp-loopback-framed",
   "host": "127.0.0.1",
   "port": 47651,
-  "max_payload_bytes": 1048576
+  "max_payload_bytes": 1048576,
+  "commands": ["ping", "status", "pause", "resume", "shutdown"]
 }
 ```
 
@@ -110,23 +111,89 @@ The payload includes:
 
 The Qt6 client maps the message into `GestureRuntimeEvent` and sends it directly to `DashboardWindow::apply_gesture_event`.
 
-## Command channel
+## Runtime command channel
 
-Protocol v1 supports framed client-to-runtime command messages. The first health command is:
+Protocol v1 supports a bounded set of validated client-to-runtime commands:
 
-```json
-{"type":"command","version":1,"name":"ping"}
+```text
+ping
+status
+pause
+resume
+shutdown
 ```
 
-The runtime replies:
+Canonical command shape:
 
 ```json
-{"type":"command_result","version":1,"name":"ping","status":"ok"}
+{
+  "type": "command",
+  "version": 1,
+  "name": "pause",
+  "request_id": "qt-42"
+}
 ```
 
-This verifies both directions of the local channel without coupling runtime lifecycle to the transport.
+`request_id` is optional for compatibility, but the Qt6 Control Center includes it on every command. IDs are limited to 64 bytes and may contain only alphanumeric characters plus `-`, `_`, `.`, and `:`.
 
-Future runtime commands must be versioned, explicitly validated, bounded, and safe to execute from a control thread. High-impact state transitions should not be added as ad-hoc string commands.
+Command results use:
+
+```json
+{
+  "type": "command_result",
+  "version": 1,
+  "name": "pause",
+  "status": "ok",
+  "request_id": "qt-42",
+  "detail": "pause requested",
+  "runtime": {
+    "state": "paused",
+    "paused": true,
+    "shutdown_requested": false,
+    "mode": "live"
+  }
+}
+```
+
+### Command semantics
+
+`ping`
+
+- health check for both directions of the framed transport
+- has no runtime side effects
+
+`status`
+
+- returns current control state
+- reports runtime state, pause state, shutdown request state, and current runtime mode
+
+`pause`
+
+- atomically requests a runtime pause
+- live camera frames are drained while paused so the producer queue does not saturate
+- replay position does not advance while paused
+- the runtime process, IPC server, camera producer, and operator channel remain alive
+
+`resume`
+
+- atomically clears the pause request
+- normal frame processing resumes on the next fixed-timestep iteration
+
+`shutdown`
+
+- requests graceful runtime termination
+- the runtime exits through the normal `Application::shutdown()` path rather than being killed by the GUI
+- process termination remains available to the operator as an emergency fallback
+
+Unsupported commands return an explicit error result. Malformed commands, unsupported protocol versions, unsafe request IDs, and payloads outside protocol limits are rejected.
+
+## Thread-safety boundary
+
+The IPC worker thread does not directly mutate camera, renderer, replay, telemetry, or scene objects.
+
+Runtime lifecycle commands are translated into atomic control state owned by `Application`. The real-time runtime thread observes that state at fixed-timestep boundaries and performs pause/resume/shutdown behavior inside the runtime lifecycle.
+
+This avoids data races between the IPC thread and the perception/render loop.
 
 ## Real-time behavior
 
@@ -143,11 +210,45 @@ The server therefore uses:
 
 This favors runtime determinism over guaranteed telemetry delivery. Session recording/replay remains the authoritative mechanism for deterministic evidence.
 
-## Reconnection
+## Desktop resilience
 
-The Qt6 client automatically reconnects to the loopback endpoint when the runtime is not running or restarts.
+The Qt6 client is lifecycle-independent from the native process.
 
-This allows the Control Center to launch before `arx_runtime` and attach as soon as the runtime server becomes available.
+Behavior:
+
+- the Control Center can start before `arx_runtime`
+- reconnect attempts use capped exponential backoff
+- the client waits for a valid protocol hello before enabling runtime commands
+- protocol hello has a handshake timeout
+- incompatible protocol versions fail closed
+- a heartbeat ping is sent periodically while connected
+- a stale heartbeat forces reconnection
+- a manual `Reconnect IPC` action is available in the operator toolbar
+- status is requested automatically after a valid protocol handshake
+
+This allows the GUI to survive runtime restarts without requiring the Control Center itself to restart.
+
+## Operator settings persistence
+
+The Qt6 Control Center stores versioned local operator settings using `QSettings`.
+
+Schema v1 persists:
+
+- workspace root
+- runtime mode
+- camera ID
+- session/replay path
+- optional Go control-plane toggle
+- optional Python AI-layer toggle
+- window geometry
+
+The settings namespace is:
+
+```text
+AetherMotion / OperatorControlCenter
+```
+
+The schema version is stored separately so future incompatible settings layouts can be migrated instead of silently reinterpreted.
 
 ## Validation
 
@@ -158,9 +259,17 @@ This allows the Control Center to launch before `arx_runtime` and attach as soon
 - multiple-frame decoding
 - oversize rejection
 - protocol identity/version declaration
-- ping response contract
+- advertised runtime controls
+- request correlation IDs
+- field-order-independent command parsing
+- pause/resume command mapping
+- unsupported-command handling
+- version rejection
+- unsafe request-ID rejection
+- command-result JSON escaping
+- structured runtime status output
 
-The Qt6 CI build validates the real desktop protocol client against the current Qt6 API surface.
+The Qt6 CI build validates the desktop command client, toolbar integration, `QSettings` integration, `QTcpSocket` heartbeat/reconnect logic, and current Qt6 API surface.
 
 ## Compatibility policy
 
@@ -172,5 +281,6 @@ Within protocol v1:
 - clients must ignore unknown fields
 - existing field meanings must not change
 - existing message types must retain compatible semantics
+- commands may only be added if old clients can safely ignore their advertisement
 
-A future v2 handshake may negotiate optional capabilities such as preview-frame transport, runtime command sets, settings schema versions, and diagnostics export.
+A future v2 handshake may negotiate optional capabilities such as preview-frame transport, diagnostics export, command authorization, and richer settings/schema negotiation.
