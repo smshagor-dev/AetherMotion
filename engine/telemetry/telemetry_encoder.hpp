@@ -2,8 +2,10 @@
 
 #include <cstdint>
 #include <deque>
+#include <functional>
 #include <optional>
 #include <string>
+#include <string_view>
 
 #include "engine/events/gesture_events.hpp"
 #include "vision/landmarks/landmark_types.hpp"
@@ -43,11 +45,16 @@ struct RuntimeTelemetryFrame {
 
 class TelemetryEncoder {
 public:
+    using ProcessSink = std::function<void(std::string_view)>;
+
     std::string encode_frame(const RuntimeTelemetryFrame& frame) const;
     std::string encode_gesture_event(const engine::GestureRuntimeEvent& event) const;
 
     void push_timeline(std::string entry);
     [[nodiscard]] const std::deque<std::string>& timeline() const noexcept;
+
+    static void install_process_sink(ProcessSink sink);
+    static void clear_process_sink();
 
 private:
     std::deque<std::string> timeline_;

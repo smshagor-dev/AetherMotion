@@ -1,12 +1,16 @@
+#include <csignal>
 #include <filesystem>
 #include <iostream>
-#include <csignal>
 #include <string>
+#include <string_view>
 
 #include "apps/runtime_cli.hpp"
 #include "engine/config/runtime_config.hpp"
 #include "engine/core/application.hpp"
+#include "engine/ipc/local_ipc_protocol.hpp"
+#include "engine/ipc/local_ipc_server.hpp"
 #include "engine/runtime/runtime_context.hpp"
+#include "engine/telemetry/telemetry_encoder.hpp"
 #include "vision/tracking/model_asset_validator.hpp"
 
 namespace {
@@ -19,7 +23,7 @@ void handle_sigint(int) {
     }
 }
 
-}
+}  // namespace
 
 int main(int argc, char** argv) {
     const auto options = arx::apps::parse_runtime_cli(argc, argv);
@@ -59,15 +63,40 @@ int main(int argc, char** argv) {
         return report.all_valid() ? 0 : 2;
     }
 
+    arx::engine::ipc::LocalIpcServer ipc_server;
+    if (!options.disable_ipc) {
+        ipc_server.set_command_handler([&ipc_server](std::string_view command) {
+            if (command == arx::engine::ipc::kPingCommand) {
+                ipc_server.publish(arx::engine::ipc::protocol_pong());
+            }
+        });
+
+        if (ipc_server.start(options.ipc_port)) {
+            arx::engine::telemetry::TelemetryEncoder::install_process_sink(
+                [&ipc_server](std::string_view payload) {
+                    ipc_server.publish(payload);
+                });
+            std::cout << "Local IPC: 127.0.0.1:" << ipc_server.port()
+                      << " protocol=v" << arx::engine::ipc::kProtocolVersion << '\n';
+        } else {
+            std::cerr << "[AetherMotion][ipc][warn] local IPC unavailable on 127.0.0.1:"
+                      << options.ipc_port << "; continuing without desktop telemetry transport\n";
+        }
+    }
+
     std::cout << "Starting " << config.engine_name << '\n';
     std::cout << "Mode: " << arx::apps::runtime_mode_name(options.mode) << '\n';
     if (options.deprecated_fusion_demo_alias) {
         std::cerr << "[ARX][warn] --mode fusion-demo is deprecated; use --mode graphical-fusion\n";
     }
+
     arx::engine::Application app(config, options.mode, session_path);
     g_runtime_app = &app;
     std::signal(SIGINT, handle_sigint);
     const int code = app.run();
     g_runtime_app = nullptr;
+
+    arx::engine::telemetry::TelemetryEncoder::clear_process_sink();
+    ipc_server.stop();
     return code;
 }
