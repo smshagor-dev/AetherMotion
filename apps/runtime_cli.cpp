@@ -1,9 +1,29 @@
 #include "apps/runtime_cli.hpp"
 
+#include <cerrno>
 #include <cstdlib>
+#include <optional>
 #include <string>
 
 namespace arx::apps {
+
+namespace {
+
+std::optional<std::uint16_t> parse_port(const char* raw) {
+    if (raw == nullptr || *raw == '\0') {
+        return std::nullopt;
+    }
+
+    errno = 0;
+    char* end = nullptr;
+    const unsigned long value = std::strtoul(raw, &end, 10);
+    if (errno != 0 || end == raw || *end != '\0' || value == 0 || value > 65535UL) {
+        return std::nullopt;
+    }
+    return static_cast<std::uint16_t>(value);
+}
+
+}  // namespace
 
 RuntimeCliOptions parse_runtime_cli(int argc, char** argv) {
     RuntimeCliOptions options;
@@ -43,6 +63,12 @@ RuntimeCliOptions parse_runtime_cli(int argc, char** argv) {
             options.debug_gestures = true;
         } else if (arg == "--disable-debounce") {
             options.disable_debounce = true;
+        } else if (arg == "--no-ipc") {
+            options.disable_ipc = true;
+        } else if (arg == "--ipc-port" && i + 1 < argc) {
+            if (const auto port = parse_port(argv[++i]); port.has_value()) {
+                options.ipc_port = *port;
+            }
         } else if (arg == "--gesture-threshold" && i + 1 < argc) {
             options.gesture_threshold = std::strtof(argv[++i], nullptr);
         }
