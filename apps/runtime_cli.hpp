@@ -1,11 +1,13 @@
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 #include <optional>
 #include <string>
 #include <vector>
 
 #include "engine/config/runtime_config.hpp"
+#include "engine/ipc/local_ipc_protocol.hpp"
 #include "engine/runtime/runtime_context.hpp"
 
 namespace arx::apps {
@@ -20,6 +22,8 @@ struct RuntimeCliOptions {
     bool disable_gesture_classifier{false};
     bool debug_gestures{false};
     bool disable_debounce{false};
+    bool disable_ipc{false};
+    std::uint16_t ipc_port{engine::ipc::kDefaultPort};
     float gesture_threshold{0.5f};
 };
 
