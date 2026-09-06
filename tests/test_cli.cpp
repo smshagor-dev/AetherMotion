@@ -24,6 +24,8 @@ int main() {
         "--disable-gesture-classifier",
         "--debug-gestures",
         "--disable-debounce",
+        "--ipc-port", "48123",
+        "--no-ipc",
         "--gesture-threshold", "0.65"
     };
 
@@ -36,6 +38,8 @@ int main() {
     ok &= expect_true(options.disable_gesture_classifier, "CLI should parse --disable-gesture-classifier");
     ok &= expect_true(options.debug_gestures, "CLI should parse --debug-gestures");
     ok &= expect_true(options.disable_debounce, "CLI should parse --disable-debounce");
+    ok &= expect_true(options.ipc_port == 48123, "CLI should parse --ipc-port");
+    ok &= expect_true(options.disable_ipc, "CLI should parse --no-ipc");
     ok &= expect_true(options.gesture_threshold > 0.64f && options.gesture_threshold < 0.66f, "CLI should parse gesture threshold");
     ok &= expect_true(options.deprecated_fusion_demo_alias, "CLI should mark deprecated fusion-demo alias");
     ok &= expect_true(arx::apps::runtime_mode_name(options.mode) == "graphical-fusion", "Runtime mode name should match production mode");
