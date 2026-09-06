@@ -24,7 +24,7 @@ HEALTH_URL = "http://127.0.0.1:8080/api/system/health"
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Bootstrap and run the ARX platform from the repository root."
+        description="Bootstrap and run AetherMotion / ARX services from the repository root."
     )
     parser.add_argument(
         "--install",
@@ -35,7 +35,7 @@ def parse_args() -> argparse.Namespace:
         "--camera",
         type=int,
         default=0,
-        help="Camera id for the Python AI layer.",
+        help="Camera id for the Python AI layer and optional native runtime.",
     )
     parser.add_argument(
         "--ws-url",
@@ -55,12 +55,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--skip-dashboard",
         action="store_true",
-        help="Do not start the dashboard UI.",
+        help="Do not start the Python dashboard UI.",
     )
     parser.add_argument(
         "--with-cpp",
+        "--with-native",
+        dest="with_native",
         action="store_true",
-        help="Try to start the native C++ vision engine if a built binary exists.",
+        help="Start the current native ARX runtime when a built binary is available.",
     )
     parser.add_argument(
         "--headless",
@@ -91,7 +93,8 @@ def main() -> int:
 
     warn_if_python_version_is_not_ideal(args.skip_ai)
     preflight_checks(args)
-    ensure_tool("go", "Go is required to run the control plane.")
+    if not args.skip_go:
+        ensure_tool("go", "Go is required to run the control plane.")
 
     processes: list[tuple[str, subprocess.Popen[str]]] = []
     active_services: list[str] = []
@@ -105,11 +108,11 @@ def main() -> int:
                 wait_for_healthcheck(HEALTH_URL, timeout_seconds=20)
                 active_services.append("go_control_plane")
 
-        if args.with_cpp:
-            cpp_proc = try_start_cpp_engine()
-            if cpp_proc is not None:
-                processes.append(("cpp_vision_engine", cpp_proc))
-                active_services.append("cpp_vision_engine")
+        if args.with_native:
+            native_proc = try_start_native_engine(args.camera)
+            if native_proc is not None:
+                processes.append(("native_runtime", native_proc))
+                active_services.append("native_runtime")
 
         if not args.skip_ai:
             try:
@@ -258,19 +261,30 @@ def start_dashboard(ws_url: str, use_camera: bool) -> subprocess.Popen[str]:
     )
 
 
-def try_start_cpp_engine() -> subprocess.Popen[str] | None:
-    candidates = [
-        CPP_DIR / "build" / "arx_vision_engine.exe",
-        CPP_DIR / "build" / "Release" / "arx_vision_engine.exe",
-        CPP_DIR / "build" / "arx_vision_engine",
+def try_start_native_engine(camera: int) -> subprocess.Popen[str] | None:
+    executable_name = "arx_runtime.exe" if os.name == "nt" else "arx_runtime"
+    candidates: list[tuple[Path, list[str]]] = [
+        (ROOT / "build" / "desktop-dev" / executable_name,
+         ["--mode", "live", "--camera", str(camera)]),
+        (ROOT / "build" / "headless-dev" / executable_name,
+         ["--mode", "live", "--camera", str(camera)]),
+        (ROOT / "build" / "release-headless" / executable_name,
+         ["--mode", "live", "--camera", str(camera)]),
+        (ROOT / "build_qt" / "Release" / executable_name,
+         ["--mode", "live", "--camera", str(camera)]),
+        (CPP_DIR / "build" / "arx_vision_engine.exe", []),
+        (CPP_DIR / "build" / "Release" / "arx_vision_engine.exe", []),
+        (CPP_DIR / "build" / "arx_vision_engine", []),
     ]
-    binary = next((path for path in candidates if path.exists()), None)
-    if binary is None:
-        print("[ARX] Skipping C++ engine because no built binary was found under cpp_vision_engine/build.")
+    selected = next(((path, args) for path, args in candidates if path.exists()), None)
+    if selected is None:
+        print("[ARX] Skipping native runtime because no built binary was found.")
+        print("[ARX] Build with `cmake --preset headless-dev` and `cmake --build --preset headless-dev`.")
         return None
 
-    print(f"[ARX] Starting C++ vision engine from {binary} ...")
-    return spawn_process([str(binary)], cwd=binary.parent)
+    binary, args = selected
+    print(f"[ARX] Starting native runtime from {binary} ...")
+    return spawn_process([str(binary), *args], cwd=ROOT)
 
 
 def wait_for_healthcheck(url: str, timeout_seconds: int) -> None:
